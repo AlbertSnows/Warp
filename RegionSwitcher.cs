@@ -22,48 +22,6 @@ public class RegionSwitcher
         MoveCamera
     }
 
-    private MethodInfo _OverWorld_LoadWorld = typeof(OverWorld).GetMethod(
-        "LoadWorld",
-        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
-        null,
-        new Type[] { typeof(string), typeof(SlugcatStats.Name), typeof(SlugcatStats.Timeline), typeof(bool) },
-        null
-    );
-    public void SwitchRegions(RainWorldGame game, string destWorld, string destRoom, IntVector2 destPos)
-    {
-        error = ErrorKey.LoadWorld;
-        Debug.Log("WARP: Loading room " + destRoom + " from region " + destWorld + "!");
-
-        for (int i = 0; i < game.AlivePlayers.Count; i++)
-        {
-            AbstractCreature absPly = game.AlivePlayers[i];
-            if (absPly != null)
-            {
-                Debug.Log("WARP: Initiating region warp.");
-                AbstractRoom oldRoom = absPly.Room;
-
-                try
-                {
-                    // Load the new world
-                    Debug.Log("WARP: Invoking original LoadWorld method for new region.");
-                    World oldWorld = game.overWorld.activeWorld;
-                    _OverWorld_LoadWorld.Invoke(game.overWorld, new object[] { destWorld, game.overWorld.PlayerCharacterNumber, game.overWorld.PlayerTimelinePosition, false });
-
-                    // Move the player and held items to the new room
-                    Debug.Log("WARP: Moving player to new region.");
-                    WorldLoaded(game, oldRoom, oldWorld, destRoom, destPos);
-                }
-                catch (Exception e)
-                {
-                    Debug.LogException(e);
-                    Debug.Log("WARP ERROR: " + this.GetErrorText(error));
-                    WarpModMenu.warpError = this.GetErrorText(error);
-                    game.pauseMenu = new PauseMenu(game.manager, game);
-                    break;
-                };
-            }
-        }
-    }
     public AbstractRoom GetFirstRoom(AbstractRoom[] abstractRooms, string regionName)
     {
         for (int i = 0; i < abstractRooms.Length; i++)
@@ -77,35 +35,9 @@ public class RegionSwitcher
     }
 
     //Taken from OverWorld.WorldLoaded
-    private void WorldLoaded(RainWorldGame game, AbstractRoom oldRoom, World oldWorld, string newRoomName, IntVector2 newPos)
+    //The destination room has already been realized and prepared by the stepwise switch, see Switching/SwitchStepper.cs
+    internal void WorldLoaded(RainWorldGame game, World oldWorld, World newWorld, AbstractRoom newRoom, IntVector2 newPos)
     {
-        //Realize the new room
-        this.error = ErrorKey.AbstractRoom;
-        World newWorld = game.overWorld.activeWorld;
-        AbstractRoom newRoom = newWorld.GetAbstractRoom(newRoomName);
-        this.error = ErrorKey.RealiseRoom;
-        newRoom.RealizeRoom(newWorld, game);
-
-        this.error = ErrorKey.RoomRealiser;
-        //Forcibly prepare all loaded rooms
-        while (newWorld.loadingRooms.Count > 0)
-        {
-            for (int i = 0; i < 1; i++)
-            {
-                for (int j = newWorld.loadingRooms.Count - 1; j >= 0; j--)
-                {
-                    if (newWorld.loadingRooms[j].done)
-                    {
-                        newWorld.loadingRooms.RemoveAt(j);
-                    }
-                    else
-                    {
-                        newWorld.loadingRooms[j].Update();
-                    }
-                }
-            }
-        }
-
         if (game.roomRealizer != null)
         {
             game.roomRealizer = new RoomRealizer(game.roomRealizer.followCreature, newWorld);
@@ -204,7 +136,8 @@ public class RegionSwitcher
             //Move player to new room
             ply.timeSpentHere = 0;
             ply.distanceToMyNode = 0;
-            oldRoom.realizedRoom.RemoveObject(ply.realizedCreature);
+            //Remove player from old room, before RealizeInRoom below places it in the new one
+            ply.realizedCreature.room.RemoveObject(ply.realizedCreature);
             ply.Move(WarpModMenu.coords != new IntVector2(-1,-1) ? new WorldCoordinate(newRoom.index, WarpModMenu.coords.x, WarpModMenu.coords.y, -1) : newRoom.realizedRoom.LocalCoordinateOfNode(0));
 
             if (ply.creatureTemplate.AI && ply.abstractAI.RealAI != null && ply.abstractAI.RealAI.pathFinder != null)

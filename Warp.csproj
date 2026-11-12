@@ -11,6 +11,9 @@
     <RootNamespace>Warp</RootNamespace>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
+    <!-- C# 10, for file-scoped namespaces and records. This only changes the syntax the compiler accepts, not the
+         output. Types that net48 lacks and the new syntax needs are supplied by Switching/IsExternalInit.cs. -->
+    <LangVersion>10</LangVersion>
     <!-- Properties/AssemblyInfo.cs already has the assembly's attributes -->
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
@@ -76,6 +79,12 @@
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(RainWorldDir)/RainWorld_Data/Managed/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.ImageConversionModule"><HintPath>$(RainWorldDir)/RainWorld_Data/Managed/UnityEngine.ImageConversionModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.InputLegacyModule"><HintPath>$(RainWorldDir)/RainWorld_Data/Managed/UnityEngine.InputLegacyModule.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <!-- The tests are a project of their own, and not part of the plugin -->
+  <ItemGroup>
+    <Compile Remove="Warp.Tests/**" />
+    <None Remove="Warp.Tests/**" />
   </ItemGroup>
 
   <!-- Source files and Resources.resx are picked up automatically. The default colours are embedded as well. -->

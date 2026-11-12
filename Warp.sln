@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Warp", "Warp.csproj", "{4AA
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C54439CB-B2DF-44F5-AD37-B071F2BE2629}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Warp.Tests", "Warp.Tests\Warp.Tests.csproj", "{1BA1257B-402C-4895-A0B3-ECE0CA5453F6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -17,6 +19,10 @@ Global
 		{4AA3E898-6C08-4C50-A960-12E6C622F7CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4AA3E898-6C08-4C50-A960-12E6C622F7CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4AA3E898-6C08-4C50-A960-12E6C622F7CF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1BA1257B-402C-4895-A0B3-ECE0CA5453F6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1BA1257B-402C-4895-A0B3-ECE0CA5453F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1BA1257B-402C-4895-A0B3-ECE0CA5453F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1BA1257B-402C-4895-A0B3-ECE0CA5453F6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

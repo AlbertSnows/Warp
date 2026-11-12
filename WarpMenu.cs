@@ -1,16 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Menu;
 using UnityEngine;
-using HUD;
 using RWCustom;
-using System.IO;
 using System.Text.RegularExpressions;
-using System.Reflection;
 using Menu.Remix.MixedUI;
 using Menu.Remix;
+using Warp.Switching;
 
 public class WarpModMenu
 {
@@ -141,13 +138,13 @@ public class WarpModMenu
         WarpInit(game, self);
     }
 
+    //Runs each time the pause menu is created. 
     public static void WarpPreInit(RainWorldGame game)
     {
-        if (WarpEnabled(game))
-        {
-            WarpSettings.Load();
-            warpActive = false;
-        }
+        if (!WarpEnabled(game)) return;
+        WarpSettings.Load();
+        warpActive = false;
+        RegionSwitchController.Cancel();
     }
 
     public static void WarpInit(RainWorldGame game, PauseMenu self)
@@ -330,113 +327,110 @@ public class WarpModMenu
             return TranslateText;
         }
     }
+    //Runs once per frame, after the game's own overworld update, while a warp has been requested. Carries on a region
+    //switch that has already started (one step per frame), starts one if another region was chosen, and otherwise
+    //moves the players to the chosen room in the same region.
     public static void WarpOverworldUpdate(OverWorld self, RainWorldGame game)
     {
-        if (WarpEnabled(game))
+        if (!WarpEnabled(game)) return;
+        var player = (self.game.AlivePlayers.Count <= 0) ? null : (self.game.AlivePlayers[0].realizedCreature as Player);
+        if (!warpActive)
         {
-            Player player = (self.game.AlivePlayers.Count <= 0) ? null : (self.game.AlivePlayers[0].realizedCreature as Player);
-            if (warpActive)
+            //A region switch only lives while a warp is requested, so one that is left over is dropped
+            RegionSwitchController.Cancel();
+            return;
+        }
+        //A region switch that has started carries on, one step each frame
+        if (RegionSwitchController.Active)
+        {
+            RegionSwitchController.Step(self);
+            return;
+        }
+        if (player == null || player.inShortcut)
+        {
+            return;
+        }
+        //New region selected, initiate Region Switcher
+        if ((newRegion != null && newRegion != self.activeWorld.region.name))
+        {
+            RegionSwitchController.Begin(self);
+        }
+        //New room in same region selected
+        else
+        {
+            //Get the abstract room
+            if (switchRoom == null || switchRoom.name != newRoom)
             {
-                if (player == null || player.inShortcut)
+                switchRoom = self.game.world.GetAbstractRoom(newRoom);
+            }
+            //Realise it if its still abstract
+            if (switchRoom != null && switchRoom.realizedRoom == null)
+            {
+                switchRoom.RealizeRoom(self.game.world, self.game);
+            }
+            //Move each player to the new room
+            if (switchRoom.realizedRoom != null && switchRoom.realizedRoom.ReadyForPlayer && player != null)
+            {
+                if (player.room != switchRoom.realizedRoom)
                 {
-                    return;
-                }
-                //New region selected, initiate Region Switcher
-                if ((newRegion != null && newRegion != self.activeWorld.region.name))
-                {
-                    RegionSwitcher rs = new RegionSwitcher();
-                    try
-                    {
-                        warpError = "";
-                        rs.SwitchRegions(self.game, newRegion, newRoom, new IntVector2(0, 0));
-                    }
-                    catch (Exception e)
-                    {
-                        Debug.LogException(e);
-                        Debug.Log("WARP ERROR: " + rs.GetErrorText(rs.error));
-                        warpError = rs.GetErrorText(rs.error);
-                        self.game.pauseMenu = new Menu.PauseMenu(self.game.manager, self.game);
-                    }
-                    warpActive = false;
-                }
-                //New room in same region selected
-                else
-                {
-                    //Get the abstract room
-                    if (switchRoom == null || switchRoom.name != newRoom)
-                    {
-                        switchRoom = self.game.world.GetAbstractRoom(newRoom);
-                    }
-                    //Realise it if its still abstract
-                    if (switchRoom != null && switchRoom.realizedRoom == null)
-                    {
-                        switchRoom.RealizeRoom(self.game.world, self.game);
-                    }
-                    //Move each player to the new room
-                    if (switchRoom.realizedRoom != null && switchRoom.realizedRoom.ReadyForPlayer && player != null)
-                    {
-                        if (player.room != switchRoom.realizedRoom)
-                        {
-                            for (int i = 0; i < self.game.AlivePlayers.Count; i++)
-                            {
-                                if (self.game.AlivePlayers[i].realizedCreature.grasps != null)
-                                {
-                                    //Checking all grasps
-                                    for (int g = 0; g < self.game.AlivePlayers[i].realizedCreature.grasps.Length; g++)
-                                    {
-                                        //If it's a creature, let it go
-                                        if (self.game.AlivePlayers[i].realizedCreature.grasps[g] != null && self.game.AlivePlayers[i].realizedCreature.grasps[g].grabbed != null && !self.game.AlivePlayers[i].realizedCreature.grasps[g].discontinued && (self.game.AlivePlayers[i].realizedCreature.grasps[g].grabbed is Creature))
-                                        {
-                                            //But only if its not another Player/Slugpup
-                                            if (!(self.game.AlivePlayers[i].realizedCreature.grasps[g].grabbed is Player && (self.game.AlivePlayers[i].realizedCreature.grasps[g].grabbed as Player).isSlugpup))
-                                            {
-                                                self.game.AlivePlayers[i].realizedCreature.ReleaseGrasp(g);
-                                            }
-                                        }
-                                    }
-                                }
-                                self.game.AlivePlayers[i].realizedCreature.abstractCreature.Move(coords != new IntVector2(-1, -1) ? new WorldCoordinate(switchRoom.index, coords.x, coords.y, -1) : switchRoom.realizedRoom.LocalCoordinateOfNode(0));
-                                self.game.AlivePlayers[i].realizedCreature.PlaceInRoom(switchRoom.realizedRoom);
-                                self.game.AlivePlayers[i].realizedCreature.abstractCreature.ChangeRooms(player.room.GetWorldCoordinate(player.mainBodyChunk.pos));
-                                coords = new IntVector2(-1, -1);
-                            }
-                        }
-                        else if (coords != new IntVector2(-1, -1))
-                        {
-                            for (int i = 0; i < self.game.AlivePlayers.Count; i++)
-                            {
-                                for (int s = 0; s < self.game.AlivePlayers[i].realizedCreature.bodyChunks.Length; s++)
-                                {
-                                    self.game.AlivePlayers[i].realizedCreature.bodyChunks[s].pos = self.game.AlivePlayers[i].Room.realizedRoom.MiddleOfTile(coords.x, coords.y);
-                                    self.game.AlivePlayers[i].realizedCreature.bodyChunks[s].lastPos = self.game.AlivePlayers[i].realizedCreature.bodyChunks[s].pos;
-                                }
-                            }
-                            warpActive = false;
-                            switchRoom = null;
-                            return;
-                        }
-                    }
-                    //Move player backspears to new room
                     for (int i = 0; i < self.game.AlivePlayers.Count; i++)
                     {
-                        if (self.game.AlivePlayers[i].realizedCreature != null && (self.game.AlivePlayers[i].realizedCreature as Player).spearOnBack != null)
+                        if (self.game.AlivePlayers[i].realizedCreature.grasps != null)
                         {
-                            if ((self.game.AlivePlayers[i].realizedCreature as Player).spearOnBack.spear != null)
+                            //Checking all grasps
+                            for (int g = 0; g < self.game.AlivePlayers[i].realizedCreature.grasps.Length; g++)
                             {
-                                (self.game.AlivePlayers[i].realizedCreature as Player).spearOnBack.spear.PlaceInRoom(switchRoom.realizedRoom);
-                                (self.game.AlivePlayers[i].realizedCreature as Player).spearOnBack.spear.room = (self.game.AlivePlayers[i].realizedCreature as Player).room;
+                                //If it's a creature, let it go
+                                if (self.game.AlivePlayers[i].realizedCreature.grasps[g] != null && self.game.AlivePlayers[i].realizedCreature.grasps[g].grabbed != null && !self.game.AlivePlayers[i].realizedCreature.grasps[g].discontinued && (self.game.AlivePlayers[i].realizedCreature.grasps[g].grabbed is Creature))
+                                {
+                                    //But only if its not another Player/Slugpup
+                                    if (!(self.game.AlivePlayers[i].realizedCreature.grasps[g].grabbed is Player && (self.game.AlivePlayers[i].realizedCreature.grasps[g].grabbed as Player).isSlugpup))
+                                    {
+                                        self.game.AlivePlayers[i].realizedCreature.ReleaseGrasp(g);
+                                    }
+                                }
                             }
                         }
-                    }
-                    //Move players to the first entrance, move the room camera
-                    if (player != null && player.room == switchRoom.realizedRoom)
-                    {
-                        self.game.cameras[0].virtualMicrophone.AllQuiet();
-                        self.game.cameras[0].MoveCamera(player.room, 0);
-                        warpActive = false;
-                        switchRoom = null;
+                        self.game.AlivePlayers[i].realizedCreature.abstractCreature.Move(coords != new IntVector2(-1, -1) ? new WorldCoordinate(switchRoom.index, coords.x, coords.y, -1) : switchRoom.realizedRoom.LocalCoordinateOfNode(0));
+                        self.game.AlivePlayers[i].realizedCreature.PlaceInRoom(switchRoom.realizedRoom);
+                        self.game.AlivePlayers[i].realizedCreature.abstractCreature.ChangeRooms(player.room.GetWorldCoordinate(player.mainBodyChunk.pos));
+                        coords = new IntVector2(-1, -1);
                     }
                 }
+                else if (coords != new IntVector2(-1, -1))
+                {
+                    for (int i = 0; i < self.game.AlivePlayers.Count; i++)
+                    {
+                        for (int s = 0; s < self.game.AlivePlayers[i].realizedCreature.bodyChunks.Length; s++)
+                        {
+                            self.game.AlivePlayers[i].realizedCreature.bodyChunks[s].pos = self.game.AlivePlayers[i].Room.realizedRoom.MiddleOfTile(coords.x, coords.y);
+                            self.game.AlivePlayers[i].realizedCreature.bodyChunks[s].lastPos = self.game.AlivePlayers[i].realizedCreature.bodyChunks[s].pos;
+                        }
+                    }
+                    warpActive = false;
+                    switchRoom = null;
+                    return;
+                }
+            }
+            //Move player backspears to new room
+            for (int i = 0; i < self.game.AlivePlayers.Count; i++)
+            {
+                if (self.game.AlivePlayers[i].realizedCreature != null && (self.game.AlivePlayers[i].realizedCreature as Player).spearOnBack != null)
+                {
+                    if ((self.game.AlivePlayers[i].realizedCreature as Player).spearOnBack.spear != null)
+                    {
+                        (self.game.AlivePlayers[i].realizedCreature as Player).spearOnBack.spear.PlaceInRoom(switchRoom.realizedRoom);
+                        (self.game.AlivePlayers[i].realizedCreature as Player).spearOnBack.spear.room = (self.game.AlivePlayers[i].realizedCreature as Player).room;
+                    }
+                }
+            }
+            //Move players to the first entrance, move the room camera
+            if (player != null && player.room == switchRoom.realizedRoom)
+            {
+                self.game.cameras[0].virtualMicrophone.AllQuiet();
+                self.game.cameras[0].MoveCamera(player.room, 0);
+                warpActive = false;
+                switchRoom = null;
             }
         }
     }
