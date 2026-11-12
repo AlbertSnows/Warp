@@ -11,9 +11,9 @@
     <RootNamespace>Warp</RootNamespace>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
-    <!-- C# 10, for file-scoped namespaces and records. This only changes the syntax the compiler accepts, not the
-         output. Types that net48 lacks and the new syntax needs are supplied by Switching/IsExternalInit.cs. -->
-    <LangVersion>10</LangVersion>
+    <!-- C# 12, for file-scoped namespaces, records and primary constructors. This only changes the syntax the compiler
+         accepts, not the output. Types that net48 lacks and the new syntax needs are supplied by src/Util/IsExternalInit.cs. -->
+    <LangVersion>12</LangVersion>
     <!-- Properties/AssemblyInfo.cs already has the assembly's attributes -->
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
@@ -83,8 +83,8 @@
 
   <!-- The tests are a project of their own, and not part of the plugin -->
   <ItemGroup>
-    <Compile Remove="Warp.Tests/**" />
-    <None Remove="Warp.Tests/**" />
+    <Compile Remove="tests/**" />
+    <None Remove="tests/**" />
   </ItemGroup>
 
   <!-- Source files and Resources.resx are picked up automatically. The default colours are embedded as well. -->

@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Warp", "Warp.csproj", "{4AA
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C54439CB-B2DF-44F5-AD37-B071F2BE2629}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Warp.Tests", "Warp.Tests\Warp.Tests.csproj", "{1BA1257B-402C-4895-A0B3-ECE0CA5453F6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Warp.Tests", "tests\Warp.Tests.csproj", "{1BA1257B-402C-4895-A0B3-ECE0CA5453F6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

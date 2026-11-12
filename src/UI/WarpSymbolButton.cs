@@ -1,0 +1,42 @@
+using Menu;
+using RWCustom;
+using UnityEngine;
+
+namespace Warp.UI;
+
+/// <summary>A button with a picture on it, drawn in a color of its own.</summary>
+internal sealed class WarpSymbolButton : SymbolButton
+{
+    public Color Tint { get; set; } = new(0.7f, 0.7f, 0.7f);
+
+    public WarpSymbolButton(Menu.Menu menu, MenuObject owner, string symbolName, string signal, Vector2 pos, float size)
+        : base(menu, owner, symbolName, signal, pos)
+    {
+        roundedRect.size = new Vector2(size, size);
+        this.size = roundedRect.size;
+    }
+
+    public override Color MyColor(float timeStacker)
+    {
+        if (!buttonBehav.greyedOut)
+        {
+            var glow = Mathf.Max(
+                Mathf.Lerp(buttonBehav.lastCol, buttonBehav.col, timeStacker),
+                Mathf.Lerp(buttonBehav.lastFlash, buttonBehav.flash, timeStacker));
+            var from = Color.Lerp(Color.Lerp(Menu.Menu.MenuColor(Menu.Menu.MenuColors.DarkGrey).rgb, Tint, 0.7f), Tint, glow);
+            return Color.Lerp(from, Menu.Menu.MenuColor(Menu.Menu.MenuColors.Black).rgb, black);
+        }
+        if (maintainOutlineColorWhenGreyedOut)
+        {
+            return Menu.Menu.MenuRGB(Menu.Menu.MenuColors.DarkGrey);
+        }
+        return HSLColor.Lerp(
+            Menu.Menu.MenuColor(Menu.Menu.MenuColors.VeryDarkGrey), Menu.Menu.MenuColor(Menu.Menu.MenuColors.Black), black).rgb;
+    }
+
+    public override void GrafUpdate(float timeStacker)
+    {
+        base.GrafUpdate(timeStacker);
+        symbolSprite.color = MyColor(timeStacker);
+    }
+}

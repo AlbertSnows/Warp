@@ -1,0 +1,95 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+
+namespace Warp.Model;
+
+/// <summary>
+/// What the player has chosen in the Warp menu and wants kept between sessions. Never changed once made.
+/// </summary>
+internal sealed record Preferences(
+    bool ShowMenu = true,
+    bool ShowStats = false,
+    Grouping Sort = Grouping.Type,
+    Grouping View = Grouping.Type,
+    bool DropdownMode = true,
+    bool Alphabetical = true)
+{
+    /// <summary>
+    /// The settings file's text: one digit for each setting, in the order of the fields above, with the groupings as
+    /// 0 (type), 1 (size) or 2 (subregion). Example: "100011".
+    /// </summary>
+    public string Serialize()
+    {
+        return new StringBuilder()
+            .Append(Digit(ShowMenu))
+            .Append(Digit(ShowStats))
+            .Append((int)Sort)
+            .Append((int)View)
+            .Append(Digit(DropdownMode))
+            .Append(Digit(Alphabetical))
+            .ToString();
+    }
+
+    /// <summary>
+    /// Reads the settings file's text. A file written by an older version may stop early, and the settings it does not
+    /// reach keep their defaults. Null when the text is not a settings file at all, which means the caller should
+    /// start again from the defaults.
+    /// </summary>
+    public static Preferences? Parse(string text)
+    {
+        var digits = text.Trim();
+        if (digits.Length > 0 && digits.Any(c => c < '0' || c > '9'))
+        {
+            return null;
+        }
+        var result = new Preferences();
+        for (var i = 0; i < Math.Min(digits.Length, 6); i++)
+        {
+            var value = digits[i] - '0';
+            var largest = i is 2 or 3 ? (int)Grouping.Subregion : 1;
+            if (value > largest)
+            {
+                return null;
+            }
+            result = i switch
+            {
+                0 => result with { ShowMenu = value == 1 },
+                1 => result with { ShowStats = value == 1 },
+                2 => result with { Sort = (Grouping)value },
+                3 => result with { View = (Grouping)value },
+                4 => result with { DropdownMode = value == 1 },
+                _ => result with { Alphabetical = value == 1 }
+            };
+        }
+        return result;
+    }
+
+    private static int Digit(bool value) => value ? 1 : 0;
+}
+
+/// <summary>
+/// The regions the player has marked as favourites. The file holds the names separated by colons.
+/// </summary>
+internal static class Favourites
+{
+    public static string Serialize(IEnumerable<string> regions) => string.Join(":", regions);
+
+    public static HashSet<string> Parse(string text)
+    {
+        return new HashSet<string>(text.Split(':').Select(name => name.Trim()).Where(name => name.Length > 0));
+    }
+
+    /// <summary>The set with the region added if it was absent and removed if it was there.</summary>
+    public static HashSet<string> Toggle(IReadOnlyCollection<string> favourites, string region)
+    {
+        var result = new HashSet<string>(favourites);
+        if (!result.Remove(region))
+        {
+            result.Add(region);
+        }
+        return result;
+    }
+}

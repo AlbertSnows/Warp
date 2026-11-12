@@ -15,7 +15,7 @@ Warp versions v.86.0 and above are for Rain World v1.10
 Get the latest release [Here](https://github.com/LeeMoriya/Warp/releases/tag/v1.85.0)
 
 ## Building:
-The code uses C# 10, so it needs the .NET 6 SDK. It also needs Rain World with BepInEx 
+The code uses C# 12, so it needs the .NET 8 SDK. It also needs Rain World with BepInEx 
 installed (run the game once with BepInEx so it creates the `HOOKS-Assembly-CSharp` and 
 `PUBLIC-Assembly-CSharp` libraries the build uses). It builds on Windows, Linux and macOS. 
 The first build downloads a small package from NuGet, so it needs an internet connection that once:
@@ -33,9 +33,12 @@ The result is `bin/Release/Warp.dll`.
 A Debug build, which is what `dotnet build` does when you leave out `-c Release`, is written straight into the game's `RainWorld_Data/StreamingAssets/mods/warp/newest/plugins` folder if that folder exists, so a change can be tried in the game at once. **That overwrites the Warp in that folder.** To build a Debug version without that, add `-p:DeployToGame=false`, and it goes to `bin/Debug` instead. Without a `mods/warp` folder, Debug builds always go to `bin/Debug`.
 
 ## Newer C# on .NET Framework 4.8:
-Warp has to target `net48`, because Rain World's Unity 2020.3 runs mods on that family of libraries, and no newer .NET can be loaded. The compiler can still be newer than the target (`LangVersion` is 10 in `Warp.csproj`). The syntax then works, as long as the library types it relies on exist. For records and `init` properties one type is missing, `IsExternalInit`, and `Switching/IsExternalInit.cs` supplies an empty copy. The file explains how that works and lists its sources.
+Warp has to target `net48`, because Rain World's Unity 2020.3 runs mods on that family of libraries, and no newer .NET can be loaded. The compiler can still be newer than the target (`LangVersion` is 12 in `Warp.csproj`). The syntax then works, as long as the library types it relies on exist. For records and `init` properties one type is missing, `IsExternalInit`, and `src/Util/IsExternalInit.cs` supplies an empty copy. The file explains how that works and lists its sources.
 
 ## Tests:
+The tests cover everything that needs no game files: reading the region files, sorting and laying out the room buttons, the settings, favourites and color files, the room preview drawing, and the region switch decisions. From the repository root:
 
-    cd Warp.Tests
-    dotnet run
+    dotnet run --project tests/Warp.Tests.csproj
+
+## Code layout:
+`src/Model` and `src/Preview` hold the logic and know nothing about the game, which is why the tests can run without it. `src/Game` reads the game's files and keeps the menu's state. `src/Switching` carries out warps. `src/UI` is the menu itself and `src/Hooks` connects it to the game. [docs/architecture.md](docs/architecture.md) explains how the parts fit together, and [docs/testing.md](docs/testing.md) lists what to try in the game after a change, since the menu cannot be tested outside it.

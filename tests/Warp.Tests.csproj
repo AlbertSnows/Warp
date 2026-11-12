@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests for the parts of Warp that need no game files. Run them from the repository root with: dotnet run (project tests) -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <!-- So the tests also run where only a newer .NET runtime is installed -->
+    <RollForward>Major</RollForward>
+    <RootNamespace>Warp.Tests</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <Compile Include="../src/Model/*.cs" />
+    <Compile Include="../src/Preview/*.cs" />
+    <Compile Include="../src/Util/Atom.cs" />
+    <Compile Include="../src/Switching/SwitchState.cs" />
+    <Compile Include="../src/Switching/SwitchStep.cs" />
+    <Compile Include="../src/Switching/SwitchPolicy.cs" />
+    <!-- The colors file that ships with Warp, so a test can check it still reads -->
+    <None Include="../Resources/Colors.txt" Link="Colors.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
