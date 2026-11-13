@@ -35,9 +35,9 @@ story session. Look for `WARP:` lines in `BepInEx/LogOutput.log` afterwards.
 11. Shift + click a room sets the den position; C clears it. Start a new session and check it starts there.
 12. F5 reads every region and opens the room list; F6 writes the regions read so far.
 13. Make a warp fail (for example, a region whose files are broken) and check the pause menu shows a red message.
-14. Right click a room, open the export bar and press SCALE more than once. The label reads "SCALE: X2", "X5", "X10",
-    then
-    "X1", and EXPORT saves a picture of that size. Try a large room at X10: it should say the picture is too big.
+14. Right click a room, open the export bar and press SCALE more than once. The label reads "SCALE: X2", "X5", "X10"
+    and then "X1" again, and EXPORT saves a picture of that size. Try a large room at X10: it should say the picture
+    is too big.
 15. With both Warp Menu and this mod installed, only one of them loads (look for the BepInEx incompatibility message).
 16. Warp to a room in your own region with a second player in a shortcut. The warp waits until they are out.
 17. Open and close the room preview a few times, then pause and unpause. Nothing should be left on screen and the pause

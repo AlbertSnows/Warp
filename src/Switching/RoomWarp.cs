@@ -12,7 +12,6 @@ namespace Warp.Switching;
 internal sealed class RoomWarp
 {
     private AbstractRoom _room;
-    private float? _startTime;
 
     /// <summary>The step the warp is at, so a failure can say what it was doing.</summary>
     public WarpStage Stage { get; private set; } = WarpStage.AbstractRoom;
@@ -20,13 +19,14 @@ internal sealed class RoomWarp
     /// <summary>
     /// Does one frame's work towards the request. Returns true once the players are in the room and the camera has
     /// followed (or the warp no longer applies), and false while it is still waiting. Throws if the room does not
-    /// exist, or if it takes longer than <see cref="WarpWaitPolicy.DefaultTimeoutSeconds"/>.
+    /// exist, or if it takes longer than <see cref="WarpWaitPolicy.DefaultTimeoutSeconds"/> from
+    /// <paramref name="firstSeen"/>, the time the driver first saw the request: there is one clock for a warp, and it is
+    /// the driver's.
     /// </summary>
-    public bool Update(OverWorld overWorld, WarpRequest request)
+    public bool Update(OverWorld overWorld, WarpRequest request, float firstSeen)
     {
         RainWorldGame game = overWorld.game;
         float now = Time.realtimeSinceStartup;
-        _startTime ??= now;
         Stage = WarpStage.AbstractRoom;
         if (_room == null || _room.name != request.Room)
         {
@@ -45,7 +45,7 @@ internal sealed class RoomWarp
             Ready: realized is { ReadyForPlayer: true },
             PlayersCanMove: PlayerOps.PlayersCanMove(game),
             Now: now);
-        switch (WarpWaitPolicy.Next(_startTime.Value, facts, WarpWaitPolicy.DefaultTimeoutSeconds))
+        switch (WarpWaitPolicy.Next(firstSeen, facts, WarpWaitPolicy.DefaultTimeoutSeconds))
         {
             case WarpWaitAction.Drop:
                 Finish();
@@ -89,12 +89,8 @@ internal sealed class RoomWarp
         return true;
     }
 
-    /// <summary>Forgets the room and the start time, so the next warp starts afresh.</summary>
-    public void Finish()
-    {
-        _room = null;
-        _startTime = null;
-    }
+    /// <summary>Forgets the room, so the next warp looks its destination up afresh.</summary>
+    public void Finish() => _room = null;
 
     /// <summary>
     /// Moves every player into the room, at the chosen tile if there is one and at the room's first entrance if

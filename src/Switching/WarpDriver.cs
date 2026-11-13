@@ -37,7 +37,7 @@ internal static class WarpDriver
         }
         else if (request.Region == overWorld.activeWorld.region.name)
         {
-            UpdateRoomWarp(overWorld, request);
+            UpdateRoomWarp(overWorld, request, _firstSeen.Value);
         }
         else
         {
@@ -49,11 +49,11 @@ internal static class WarpDriver
     /// A warp inside the region. It is asked every frame, whether or not the players can move, because the policy it
     /// runs decides when to wait, to give up and to drop the request.
     /// </summary>
-    private static void UpdateRoomWarp(OverWorld overWorld, WarpRequest request)
+    private static void UpdateRoomWarp(OverWorld overWorld, WarpRequest request, float firstSeen)
     {
         try
         {
-            if (_roomWarp.Update(overWorld, request))
+            if (_roomWarp.Update(overWorld, request, firstSeen))
             {
                 End();
             }
@@ -73,7 +73,11 @@ internal static class WarpDriver
     private static void UpdateStart(OverWorld overWorld, WarpRequest request, float firstSeen, float now)
     {
         RainWorldGame game = overWorld.game;
-        var facts = new WarpWaitFacts(game.AlivePlayers.Count > 0, true, PlayerOps.PlayersCanMove(game), now);
+        var facts = new WarpWaitFacts(
+            StillApplies: game.AlivePlayers.Count > 0,
+            Ready: true,
+            PlayersCanMove: PlayerOps.PlayersCanMove(game),
+            Now: now);
         switch (WarpWaitPolicy.Next(firstSeen, facts, WarpWaitPolicy.DefaultTimeoutSeconds))
         {
             case WarpWaitAction.Go:
