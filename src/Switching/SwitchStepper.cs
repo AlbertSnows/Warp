@@ -234,12 +234,7 @@ internal sealed class SwitchStepper
     /// <summary>
     /// The players can only be moved once each has a body that is out of the shortcut system.
     /// </summary>
-    private bool PlayersCanMove()
-    {
-        return _request.Game.AlivePlayers
-            .Select(t => t.realizedCreature as Player)
-            .All(player => player is { inShortcut: false });
-    }
+    private bool PlayersCanMove() => PlayerOps.PlayersCanMove(_request.Game);
 
     /// <summary>
     /// The new world has finished loading: realize the destination room in it. The room is prepared over the next
@@ -251,7 +246,9 @@ internal sealed class SwitchStepper
         _transfer.Stage = WarpStage.AbstractRoom;
         _newWorld = _worldLoader.ReturnWorld();
         _worldLoader = null;
-        _newRoom = _newWorld.GetAbstractRoom(_request.DestRoom);
+        // A room can be listed in the world file and still be missing from the world that was loaded
+        _newRoom = _newWorld.GetAbstractRoom(_request.DestRoom)
+                   ?? throw new InvalidOperationException("The new region has no room named " + _request.DestRoom);
         _transfer.Stage = WarpStage.RealiseRoom;
         WithNewWorldActive(() => _newRoom.RealizeRoom(_newWorld, _request.Game));
     }

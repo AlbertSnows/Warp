@@ -16,5 +16,7 @@ jobs:
           dotnet-version: 8.0.x
       # Folder mode checks the formatting rules in .editorconfig without loading any project, so it does not need the
       # game's libraries.
-      - run: dotnet format whitespace --folder --verify-no-changes --exclude bin obj Resources.Designer.cs
-      - run: dotnet run --project tests/Warp.Tests.csproj
+      - run: dotnet format whitespace --folder --verify-no-changes --exclude bin obj
+      # The pure files and the tests must compile without a single warning
+      - run: dotnet build tests/Warp.Tests.csproj -warnaserror
+      - run: dotnet run --project tests/Warp.Tests.csproj --no-build

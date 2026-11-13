@@ -48,10 +48,8 @@ internal sealed class StatsPanel : RectangularMenuObject
     /// <summary> Puts the panel and its text where the layout says. </summary>
     public void Place(StatsPlacement placement)
     {
-        pos = new Vector2(placement.PanelX, placement.PanelY);
-        lastPos = pos;
-        _summary.pos.y = placement.TextY;
-        _summary.lastPos.y = placement.TextY;
+        this.MoveTo(new Vector2(placement.PanelX, placement.PanelY));
+        _summary.SetY(placement.TextY);
         FollowSummary();
     }
 
@@ -63,9 +61,5 @@ internal sealed class StatsPanel : RectangularMenuObject
     }
 
     /// <summary>The screen breakdown hangs under the summary, wherever its text ends.</summary>
-    private void FollowSummary()
-    {
-        _breakdown.pos.y = _summary.pos.y - _summary.label.textRect.height;
-        _breakdown.lastPos.y = _breakdown.pos.y;
-    }
+    private void FollowSummary() => _breakdown.SetY(_summary.pos.y - _summary.label.textRect.height);
 }

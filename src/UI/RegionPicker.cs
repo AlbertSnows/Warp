@@ -17,7 +17,11 @@ namespace Warp.UI;
 /// </summary>
 internal sealed class RegionPicker : RectangularMenuObject
 {
-    private const string ButtonPrefix = "reg-";
+    /// <summary>
+    /// The name of an entry that sits in the dropdown while its real entries are swapped. The list cannot be emptied,
+    /// so something has to be in it between the old entries going and the new ones coming in.
+    /// </summary>
+    private const string HoldOpenItem = "TOPI PLEASE";
 
     private readonly RainWorldGame _game;
     private readonly Vector2 _buttonOrigin;
@@ -146,7 +150,7 @@ internal sealed class RegionPicker : RectangularMenuObject
     }
 
     /// <summary>
-    /// Swaps the dropdown's entries for the current ones. The list cannot be emptied, so a placeholder holds it open
+    /// Swaps the dropdown's entries for the current ones. The list cannot be emptied, so a placeholder entry holds it open
     /// while the old entries go and the new ones come in.
     /// </summary>
     private void ReplaceDropdownItems(string selectedRegion)
@@ -154,12 +158,11 @@ internal sealed class RegionPicker : RectangularMenuObject
         _updatingList = true;
         try
         {
-            const string placeholder = "TOPI PLEASE";
             string[] oldNames = [.. _dropdown.GetItemList().Select(item => item.name)];
-            _dropdown.AddItems(false, new[] { new ListItem(placeholder, 0) });
+            _dropdown.AddItems(false, new[] { new ListItem(HoldOpenItem, 0) });
             _dropdown.RemoveItems(false, oldNames);
             _dropdown.AddItems(false, [.. DropdownItems()]);
-            _dropdown.RemoveItems(false, new[] { placeholder });
+            _dropdown.RemoveItems(false, new[] { HoldOpenItem });
             _dropdown.ForceValue(selectedRegion);
         }
         finally
@@ -175,7 +178,7 @@ internal sealed class RegionPicker : RectangularMenuObject
         for (int i = 0; i < order.Count; i++)
         {
             (float dx, float dy) = LeftPanelLayout.RegionButtonOffset(i, order.Count);
-            var button = new WarpButton(menu, this, order[i], ButtonPrefix + order[i],
+            var button = new WarpButton(menu, this, order[i], WarpSignals.ForRegion(order[i]),
                 _buttonOrigin + new Vector2(dx, dy), new Vector2(30f, 23f), Menu.Menu.MenuRGB(Menu.Menu.MenuColors.MediumGrey));
             _buttons.Add(button);
             subObjects.Add(button);
@@ -185,11 +188,7 @@ internal sealed class RegionPicker : RectangularMenuObject
     /// <summary> Removes the region buttons. </summary>
     private void ClearButtons()
     {
-        foreach (WarpButton button in _buttons)
-        {
-            button.RemoveSprites();
-            RemoveSubObject(button);
-        }
+        this.RemoveAll(_buttons);
         _buttons.Clear();
     }
 
@@ -209,13 +208,14 @@ internal sealed class RegionPicker : RectangularMenuObject
     /// </summary>
     public override void Singal(MenuObject sender, string message)
     {
-        base.Singal(sender, message);
-        if (!message.StartsWith(ButtonPrefix))
+        if (WarpSignals.RegionOf(message) is not { } region)
         {
+            base.Singal(sender, message);
             return;
         }
 
+        // Handled here, so it goes no further than this
         menu.PlaySound(SoundID.MENU_Button_Standard_Button_Pressed);
-        Choose(message.Substring(ButtonPrefix.Length), reload: ShiftHeld);
+        Choose(region, reload: ShiftHeld);
     }
 }

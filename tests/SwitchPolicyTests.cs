@@ -154,10 +154,7 @@ internal static class SwitchPolicyTests
     /// <summary>
     /// The limit a switch uses when it is not given one.
     /// </summary>
-    private static void DefaultTimeoutTests()
-    {
-        CheckEqual("a stage may take a minute by default", 60f, SwitchPolicy.DefaultTimeoutSeconds);
-    }
+    private static void DefaultTimeoutTests() => CheckEqual("a stage may take a minute by default", 60f, SwitchPolicy.DefaultTimeoutSeconds);
 
     /// <summary>
     /// A state never changes once made, and the same inputs always give the same answer.

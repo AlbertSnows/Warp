@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Threading;
 using Warp.Model;
 using static Warp.Tests.Harness;
 
@@ -15,6 +17,8 @@ internal static class RegionFilesTests
     {
         Group(nameof(WorldFileTests), WorldFileTests);
         Group(nameof(SpoilerTests), SpoilerTests);
+        Group(nameof(ConditionTests), ConditionTests);
+        Group(nameof(CultureTests), CultureTests);
         Group(nameof(CameraTests), CameraTests);
         Group(nameof(SubregionNameTests), SubregionNameTests);
         Group(nameof(MapTests), MapTests);
@@ -120,8 +124,8 @@ internal static class RegionFilesTests
 
         RoomInfo[] rooms =
         [
-            new RoomInfo("SU_B", RoomType.Shelter, 2, 1), new RoomInfo("SU_A", RoomType.Shelter, 5, 0),
-            new RoomInfo("SU_C", RoomType.Room, 3, 1), new RoomInfo("SU_D", RoomType.Gate, 3, 0)
+            new("SU_B", RoomType.Shelter, 2, 1), new("SU_A", RoomType.Shelter, 5),
+            new("SU_C", RoomType.Room, 3, 1), new("SU_D", RoomType.Gate, 3)
         ];
         CheckSequence("sorted by type, then name", ["SU_C", "SU_D", "SU_A", "SU_B"],
             RoomSorting.Sort(rooms, Grouping.Type).Select(r => r.Name));
@@ -129,5 +133,54 @@ internal static class RegionFilesTests
             RoomSorting.Sort(rooms, Grouping.Size).Select(r => r.Name));
         CheckSequence("sorted by subregion, then name", ["SU_A", "SU_D", "SU_B", "SU_C"],
             RoomSorting.Sort(rooms, Grouping.Subregion).Select(r => r.Name));
+    }
+
+    private static void ConditionTests()
+    {
+        CheckEqual("a condition in parentheses", "SU_A01", RegionFiles.StripCondition("(White)SU_A01"));
+        CheckEqual("a condition in braces", "SU_A01", RegionFiles.StripCondition("{Spear}SU_A01"));
+        CheckEqual("both, in either order", "SU_A01", RegionFiles.StripCondition("{Spear}(White)SU_A01"));
+        CheckEqual("both, the other way round", "SU_A01", RegionFiles.StripCondition("(White){Spear}SU_A01"));
+        CheckEqual("no condition", "SU_A01", RegionFiles.StripCondition("SU_A01"));
+        CheckEqual("a bracket in the middle of a name is not a condition", "SU_A(1)", RegionFiles.StripCondition("SU_A(1)"));
+        CheckEqual("a condition that is never closed is left alone", "(WhiteSU_A01", RegionFiles.StripCondition("(WhiteSU_A01"));
+        CheckEqual("an empty name", "", RegionFiles.StripCondition(""));
+
+        string[] world =
+        [
+            "ROOMS",
+            "LSU_A01 : LSU_A02",
+            "SU_A01 : SU_A02",
+            "{Spear}(White)SU_A02 : SU_A01",
+            "(Spear)LSU_A03 : SU_A01",
+            "GATE_LSU_SU : LSU_A01, SU_A01 : GATE",
+            "END ROOMS"
+        ];
+        CheckSequence("a room has to start with the region's prefix, once its condition is taken off",
+            ["SU_A01", "SU_A02", "GATE_LSU_SU"],
+            RegionFiles.ParseWorldFile(world, "SU", new HashSet<string>()).Select(room => room.Name));
+    }
+
+    /// <summary>The file formats are the same whatever language the computer is set to.</summary>
+    private static void CultureTests()
+    {
+        CultureInfo original = Thread.CurrentThread.CurrentCulture;
+        try
+        {
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("tr-TR");
+            RoomInfo[] rooms = [new("SU_i"), new("SU_I"), new("SU_a1"), new("SU_B1"), new("GATE_X")];
+            CheckSequence("rooms are ordered by character code, not by language",
+                ["GATE_X", "SU_B1", "SU_I", "SU_a1", "SU_i"],
+                RoomSorting.Sort(rooms, Grouping.Type).Select(room => room.Name));
+            CheckSequence("so are region buttons", ["B", "I", "a", "i"],
+                RegionList.ButtonOrder(["i", "a", "I", "B"], new HashSet<string>(), true));
+            CheckEqual("a comment marker is found", true, RegionFiles.ParseSpoilers(["// note", "SU_I"]).SetEquals(["SU_I"]));
+            CheckEqual("a heading is found", true,
+                RegionFiles.ParseSubregionNames(["Subregion: X"], "None", line => line).Length == 2);
+        }
+        finally
+        {
+            Thread.CurrentThread.CurrentCulture = original;
+        }
     }
 }

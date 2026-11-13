@@ -76,10 +76,6 @@ internal sealed class PixelCanvas
     /// <summary>The canvas with each pixel repeated as a square of <paramref name="factor"/> pixels a side.</summary>
     public PixelCanvas Scaled(int factor)
     {
-        if (factor == 1)
-        {
-            return this;
-        }
         var result = new PixelCanvas(Width * factor, Height * factor, default);
         for (int y = 0; y < result.Height; y++)
         {

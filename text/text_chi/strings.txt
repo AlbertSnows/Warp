@@ -8,11 +8,7 @@ BORDERS: NONE|边框：无
 BORDERS: ALL|边框：全部
 BORDERS: SHELTER|边框：避难所
 BORDERS: TYPES|边框：类型
-BORDERS: NONE|边框：无
-SCALE: X1|大小：X1
-SCALE: X2|大小：X2
-SCALE: X5|大小：X5
-SCALE: X10|大小：X10
+SCALE: X{0}|大小：X{0}
 EXPORT|导出
 EXPORT REGION|导出区域
 OPEN FOLDER|打开文件夹
@@ -46,7 +42,6 @@ SCAVOUTPOST|拾荒者前哨站
 OUTPOST|前哨站
 SWARM|蝙蝠房
 TRADER|商店
-GATE|业力门
 CAMS |摄像头
 SUB |子区域
 HUE|色调
@@ -80,12 +75,8 @@ ROOM SIZE|房间大小
 SUBREGION|子区域
 LEFT|左
 RIGHT|右
-TRADER|商店
-SWARM|蝙蝠房
-OUTPOST|前哨站
 Error|错误
 
-Left click on the preview to warp to that location  -  Right click to dismiss|左键点击预览传送至该位置 - 右键点击关闭
 Left click: Warp    -    Right click: Preview|左键：传送 - 右键：预览
 Left click: Load Region    -    Shift click: Reload Region|左键：加载区域 - Shift+点击：重新加载区域
 Toggle the region list between list view and button view #SEPARATOR# Shift click to toggle alphabetical sorting|在列表视图和按钮视图之间切换区域列表 | Shift+点击切换按字母顺序排序

@@ -48,7 +48,7 @@ internal static class LayoutTests
         CheckEqual("the 22nd starts the next column, pulled in by 10", (855f, 620f),
             (tall.Buttons[21].X, tall.Buttons[21].Y));
 
-        RoomInfo[] noButton = [new RoomInfo("OFFSCREEN", Subregion: 0), new RoomInfo("SU_A", Subregion: 1)];
+        RoomInfo[] noButton = [new("OFFSCREEN", Subregion: 0), new("SU_A", Subregion: 1)];
         var bySubregion = RoomGridLayout.Compute(noButton, Grouping.Subregion, 1000f, 700f);
         CheckEqual("a heading with no buttons under it pushes the next group out by 5 for subregions",
             (945f, 915f), (bySubregion.Labels[1].X, bySubregion.Buttons[0].X));
@@ -115,6 +115,13 @@ internal static class LayoutTests
     private static void RegionButtonTests()
     {
         CheckEqual("three columns for a normal install", 3, LeftPanelLayout.GridColumns(20));
+        CheckEqual("49 regions still have three columns", 3, LeftPanelLayout.GridColumns(49));
+        CheckEqual("50 regions have four", 4, LeftPanelLayout.GridColumns(50));
+        CheckEqual("and so do 51", 4, LeftPanelLayout.GridColumns(51));
+        CheckEqual("stats sit for three columns at 49 regions", new StatsPlacement(110f, 0f, 713f),
+            LeftPanelLayout.Compute(Input(dropdown: false, regions: 49, stats: true)).Stats);
+        CheckEqual("and for four columns at exactly 50", new StatsPlacement(130f, 0f, 713f),
+            LeftPanelLayout.Compute(Input(dropdown: false, regions: 50, stats: true)).Stats);
         CheckEqual("four for a crowded one", 4, LeftPanelLayout.GridColumns(50));
         CheckEqual("the first button", (-55f, -35f), LeftPanelLayout.RegionButtonOffset(0, 20));
         CheckEqual("buttons fill rows left to right", (-55f + 35f * 2, -35f), LeftPanelLayout.RegionButtonOffset(2, 20));

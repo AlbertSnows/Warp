@@ -72,7 +72,41 @@ one of two things:
   `OverWorld.WorldLoaded`. `SwitchPolicy` makes the decisions (wait, move on, give up) from facts the stepper gathers, and
   it is pure, so its tests cover every timeout.
 
-A failure is logged, the stage it happened in is named in the error text, and the pause menu is made again to show it.
+Both paths wait for every player to be out of a shortcut, and both give up after 60 seconds (`SwitchPolicy` and
+`RoomWarpPolicy`, which are pure and tested). A failure is logged, the stage it happened in is named in the error text,
+and the pause menu is made again to show it.
+
+Every hook that calls into Warp catches what Warp throws and logs it once for each place (`Guard`), so a fault in Warp
+cannot stop the pause menu opening or repeat every frame. The game's own original method is never inside the catch.
+
+### Region switch: what to expect
+
+- A switch to another region takes about as long as a gate transition. The loader is stepped once a frame, and the game
+  stays playable while it loads.
+- `OverWorld.LoadWorld` is no longer called, so another mod that hooks it will not see Warp's switches. Mods that hook
+  `WorldLoader` still do.
+- Opening the pause menu while a switch is in progress cancels it. A `WorldLoader` that is abandoned part way leaves its
+  worker thread idle for the rest of the session; the game has no way to stop it.
+- The log (`consoleLog.txt` in the game folder, not `BepInEx/LogOutput.log`) records each switch and how long it took.
+- If moving the players fails part way, the new world is already the active one and some players may have moved. That is
+  not undone, because the players are partly in each world; only the HUD is rebuilt, so the camera does not fail on every
+  frame. The log says the session may be unstable.
+
+### Known limitations with Rain Meadow
+
+These come from the notes made while the non-blocking switch was developed, and have not all been retested on this build.
+
+- Warp does not call the game's `OverWorld.WorldLoaded`, so Rain Meadow's own region change handling (releasing the old
+  region, avatar fix-ups) is skipped. The non-blocking switch removes the freeze, not that gap. A Meadow hook for "a mod
+  changed region" is the clean way to close it.
+- Meadow logged, for each warp, an error level stack trace from its own `RoomOnAddObject` guard (a weapon being realized
+  into a room whose update list already had it), and once an `entity with repeated ID` message. Both look harmless alone
+  and are the thing to watch with a second player.
+- Tested with Meadow as the host with nobody else in the lobby. Warping with a second player, shelters and sleeping, and
+  dying or walking into a gate during a load were not tested.
+- The preview's atlas is unloaded when the preview closes. That has not been tried in the game yet.
+- Both Warp Menu and this mod add the same menu, so this one declares the original incompatible, and BepInEx will not
+  load both. That has not been tried with both installed.
 
 ## Differences from the original Warp
 
@@ -94,3 +128,21 @@ Intended changes, in case one is noticed in the game:
 - A favourite region with no full name shows its id, as the others do.
 - The room list export writes the subregion, not the camera count twice.
 - Exporting a preview scales the picture itself, so the render textures it used to allocate for each export are gone.
+- Room names and region ids are ordered by character code and not by the player's language, so the order is the same on
+  every machine. Names the game translates (the dropdown) still follow the player's language.
+- Favourites come first in the dropdown whether or not it is alphabetical, as the tooltip says. They used to sort first
+  only because "> " collates before letters.
+- A room line in a world file has to start with its region's prefix once its conditions are taken off, and conditions
+  can be stacked, so a room of region LSU is not read as one of SU.
+- Colors that are not numbers from 0 to 1 are rejected as a bad line and the default is kept.
+- Warp's own signals carry a prefix and are only read from Warp's buttons, so another mod's message that ends in "warp"
+  no longer starts a warp.
+- A warp inside a region waits for every player to be out of a shortcut and gives up after 60 seconds, as a warp to
+  another region does. The spear on a player's back is moved once the room is ready, not on every frame before.
+- If the game's controls picture is hidden, it is only hidden when the Warp menu was added.
+- The room list and the preview exports: an I/O error is logged and not thrown, nothing is opened if the file was not
+  written, regions are written in order of name, and a picture too big for a texture is refused with a message.
+- Preferences, favourites and colors are read from disk once per run of the game; the values in memory are the ones that
+  count from then on, so a second story session in the same run keeps them. Preferences and favourites are written as
+  they change. Colors are changed in memory as the sliders move and are only written to disk by SAVE.
+- The version and name come from one place, `PluginInfo`, checked against `Warp.csproj` by a test.

@@ -20,7 +20,7 @@ internal static class RoomSorting
         [
             .. rooms
                 .OrderBy(room => room.GroupKey(grouping))
-                .ThenBy(room => room.Name, StringComparer.CurrentCulture)
+                .ThenBy(room => room.Name, StringComparer.Ordinal)
         ];
     }
 }

@@ -1,0 +1,36 @@
+{"frames": {
+
+"warpColor.png":
+{
+	"frame": {"x":0,"y":0,"w":18,"h":18},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":18,"h":18},
+	"sourceSize": {"w":18,"h":18}
+},
+"warpFav.png":
+{
+	"frame": {"x":18,"y":0,"w":18,"h":18},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":18,"h":18},
+	"sourceSize": {"w":18,"h":18}
+},
+"warpList.png":
+{
+	"frame": {"x":36,"y":0,"w":18,"h":18},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":18,"h":18},
+	"sourceSize": {"w":18,"h":18}
+}},
+"meta": {
+	"app": "https://www.codeandweb.com/texturepacker",
+	"version": "1.0",
+	"image": "warp.png",
+	"format": "RGBA8888",
+	"size": {"w":54,"h":18},
+	"scale": "1",
+	"smartupdate": "$TexturePacker:SmartUpdate:2acc2f06d5877bfca24de2260eb4e854:d3dc4f7658bba83fbf717a4d1d398e7a:b64e553331b00f3db917133e74cc61bf$"
+}
+}

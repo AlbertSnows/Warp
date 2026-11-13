@@ -38,11 +38,12 @@ internal sealed class RoomPreviewDialog : Dialog
     private int _closing = -1;
     private float _lastDimAlpha;
     private float _lastSpriteAlpha;
-    private int _scale = 1;
-    private BorderMode _border = BorderMode.None;
-    private int _exportTotal;
+    private ExportOptions _options = new();
+    private RoomInfo[] _exportRooms = [];
     private int _exportNext;
     private bool _exporting;
+    private readonly string _atlasName;
+    private bool _atlasUnloaded;
 
     /// <summary>The preview that is open, or null. The pause menu holds still while one is.</summary>
     public static RoomPreviewDialog Current
@@ -55,12 +56,14 @@ internal sealed class RoomPreviewDialog : Dialog
     {
         try
         {
+            // A constructor that throws has cleaned up after itself, so only a failure to show it is dealt with here
             Current = new RoomPreviewDialog(manager, owner, room, region, pause);
             manager.ShowDialog(Current);
         }
         catch (Exception error)
         {
             WarpLog.Exception("opening the preview of " + room, error);
+            Current?.ReleaseScreen();
             Current = null;
             owner.PreviewClosed();
         }
@@ -76,28 +79,37 @@ internal sealed class RoomPreviewDialog : Dialog
         _tiles = ReadTiles(room);
         _canvas = PreviewPainter.Paint(_tiles);
 
-        string atlasName = "warpPreview_" + room;
-        if (!Futile.atlasManager.DoesContainAtlas(atlasName))
+        _atlasName = "warpPreview_" + room;
+        try
         {
-            Futile.atlasManager.LoadAtlasFromTexture(atlasName, ToTexture(_canvas), false);
+            // Always made afresh, so a room file that changed since it was last previewed is not shown as it was
+            UnloadAtlasNamed(_atlasName);
+            Futile.atlasManager.LoadAtlasFromTexture(_atlasName, ToTexture(_canvas), false);
+            Vector2 screen = Custom.rainWorld.options.ScreenSize;
+            int centerX = Mathf.RoundToInt(screen.x / 2);
+            int centerY = Mathf.RoundToInt(screen.y / 2);
+
+            // The extra 0.01 on some positions is inherited from upstream Warp
+            _dim = new FSprite("Futile_White") { x = centerX, y = centerY, scale = 5000f, color = Color.black, alpha = 0f };
+            _dim.SetAnchor(0.5f, 0.5f);
+            pages[0].Container.AddChild(_dim);
+
+            _sprite = new FSprite(_atlasName) { x = centerX + 0.01f, y = centerY, alpha = 0f };
+            _sprite.SetAnchor(0.5f, 0.5f);
+            _sprite.scale = Mathf.Min(
+                screen.x / (_tiles.Width * PreviewPainter.TileSize), screen.y / (_tiles.Height * PreviewPainter.TileSize)) * 0.83f;
+            pages[0].Container.AddChild(_sprite);
+
+            _instructions = AddLabel(Translator.Translate("Left click on the preview to warp to that location  -  Right click to dismiss"),
+                centerX, 20.01f, Color.white);
+            _exportLabel = AddLabel(Translator.Translate("Shift + E  -  Export options"), centerX, 45f, new Color(0.5f, 0.5f, 0.5f));
         }
-        Vector2 screen = Custom.rainWorld.options.ScreenSize;
-        int centerX = Mathf.RoundToInt(screen.x / 2);
-        int centerY = Mathf.RoundToInt(screen.y / 2);
-
-        _dim = new FSprite("Futile_White", true) { x = centerX, y = centerY, scale = 5000f, color = Color.black, alpha = 0f };
-        _dim.SetAnchor(0.5f, 0.5f);
-        pages[0].Container.AddChild(_dim);
-
-        _sprite = new FSprite(atlasName, true) { x = centerX + 0.01f, y = centerY, alpha = 0f };
-        _sprite.SetAnchor(0.5f, 0.5f);
-        _sprite.scale = Mathf.Min(
-            screen.x / (_tiles.Width * PreviewPainter.TileSize), screen.y / (_tiles.Height * PreviewPainter.TileSize)) * 0.83f;
-        pages[0].Container.AddChild(_sprite);
-
-        _instructions = AddLabel(Translator.Translate("Left click on the preview to warp to that location  -  Right click to dismiss"),
-            centerX, 20.01f, Color.white);
-        _exportLabel = AddLabel(Translator.Translate("Shift + E  -  Export options"), centerX, 45f, new Color(0.5f, 0.5f, 0.5f));
+        catch
+        {
+            // Something was added to the screen or loaded before the fault; give it back, so a failed preview leaves nothing
+            ReleaseScreen();
+            throw;
+        }
     }
 
     /// <summary> Adds a centered text line to the preview, invisible until it fades in. </summary>
@@ -133,6 +145,9 @@ internal sealed class RoomPreviewDialog : Dialog
         _dim?.RemoveFromContainer();
         _sprite?.RemoveFromContainer();
         _instructions?.RemoveFromContainer();
+        _exportLabel?.RemoveFromContainer();
+        _progress?.RemoveFromContainer();
+        _bar?.RemoveSprites();
     }
 
     // ---- Per frame ------------------------------------------------------------------------------------------------
@@ -212,7 +227,7 @@ internal sealed class RoomPreviewDialog : Dialog
     private void WarpToClickedSpot()
     {
         Vector3 mouse = Input.mousePosition;
-        if (ExportOptions.TileAt(mouse.x, mouse.y, _sprite.x, _sprite.y, _sprite.scale, _tiles.Width, _tiles.Height) is not { } tile)
+        if (PreviewPainter.TileAt(mouse.x, mouse.y, _sprite.x, _sprite.y, _sprite.scale, _tiles.Width, _tiles.Height) is not { } tile)
         {
             return;
         }
@@ -224,17 +239,57 @@ internal sealed class RoomPreviewDialog : Dialog
     /// <summary> Removes the preview from the screen and tells the Warp menu it has gone. </summary>
     private void Close()
     {
-        pages[0].Container.RemoveAllChildren();
+        ReleaseScreen();
         manager.StopSideProcess(this);
         _owner.PreviewClosed();
         Current = null;
+    }
+
+    /// <summary> Gives the preview's picture back to the game, so a previewed room does not keep a texture for the rest of the session. </summary>
+    private void UnloadAtlas()
+    {
+        if (_atlasUnloaded)
+        {
+            return;
+        }
+        _atlasUnloaded = true;
+        UnloadAtlasNamed(_atlasName);
+    }
+
+    private static void UnloadAtlasNamed(string name)
+    {
+        if (Futile.atlasManager.DoesContainAtlas(name))
+        {
+            Futile.atlasManager.UnloadAtlas(name);
+        }
     }
 
     /// <summary> Removes the preview's pictures when the game shuts the preview down. </summary>
     public override void ShutDownProcess()
     {
         base.ShutDownProcess();
+        // This runs while the game is tearing the process down, so nothing here is allowed to throw out of it
+        try
+        {
+            ReleaseScreen();
+            // The game can shut the dialog down other than through Close, and a stale Current would leave the pause menu stuck
+            if (ReferenceEquals(Current, this))
+            {
+                Current = null;
+                _owner.PreviewClosed();
+            }
+        }
+        catch (Exception error)
+        {
+            Guard.Report("shutting down the room preview", error);
+        }
+    }
+
+    /// <summary> Takes everything the preview put on the screen off it, and gives its picture back to the game. Safe to call again. </summary>
+    private void ReleaseScreen()
+    {
         pages[0].Container.RemoveAllChildren();
+        UnloadAtlas();
     }
 
     // ---- Export ---------------------------------------------------------------------------------------------------
@@ -252,68 +307,115 @@ internal sealed class RoomPreviewDialog : Dialog
     /// <summary> Shows the exported file's name and size, which changes with the scale. </summary>
     private void ShowFileName()
     {
-        _exportLabel.text = Translator.Translate("{0} x {1} pixels  -  {2}_preview.png")
-            .Replace("{0}", (_canvas.Width * _scale).ToString())
-            .Replace("{1}", (_canvas.Height * _scale).ToString())
-            .Replace("{2}", _room);
+        (int width, int height) = _options.OutputSize(_canvas.Width, _canvas.Height, _options.HasBorder(TypeOf(_room)));
+        _exportLabel.text = Translator.Format("{0} x {1} pixels  -  {2}_preview.png", width, height, _room);
     }
 
     /// <summary> Handles the export buttons: scale, border, export, export region and open folder. </summary>
     public override void Singal(MenuObject sender, string message)
     {
-        base.Singal(sender, message);
         switch (message)
         {
             case ExportBar.ScaleSignal:
-                _scale = ExportOptions.NextScale(_scale);
-                _bar.ScaleText = Translator.Translate("SCALE: X" + _scale);
+                _options = _options.NextScale();
+                _bar.ScaleText = Translator.Format("SCALE: X{0}", _options.Scale);
                 ShowFileName();
                 PlaySound(SoundID.MENU_Button_Standard_Button_Pressed);
                 break;
             case ExportBar.BorderSignal:
-                _border = ExportOptions.Next(_border);
-                _bar.BorderText = Translator.Translate("BORDERS: " + BorderName(_border));
+                _options = _options.NextBorder();
+                _bar.BorderText = Translator.Translate(BorderLabel(_options.Border));
+                ShowFileName();
                 PlaySound(SoundID.MENU_Button_Standard_Button_Pressed);
                 break;
             case ExportBar.ExportSignal:
-                _exportLabel.text = Translator.Translate("Saved: {0}").Replace("{0}", Save(_room, _canvas));
+                string saved = TrySave(_room, () => _canvas);
+                _exportLabel.text = saved != null
+                    ? Translator.Format("Saved: {0}", saved)
+                    : Translator.Translate("The picture could not be saved. The log says why");
                 PlaySound(SoundID.MENU_Button_Standard_Button_Pressed);
                 break;
-            case ExportBar.ExportRegionSignal when !_exporting:
+            case ExportBar.ExportRegionSignal when _exporting:
+                // Already exporting; the second press is ignored, and stops here
+                break;
+            case ExportBar.ExportRegionSignal:
                 _exporting = true;
-                _exportTotal = RegionCatalog.Get(_region).Rooms.Length;
+                // The rooms are taken once, so a region read again while this runs cannot change what is being exported
+                _exportRooms = RegionCatalog.Get(_region).Rooms;
                 _exportNext = 0;
                 _exportLabel.text = "";
                 break;
             case ExportBar.OpenSignal:
-                Application.OpenURL(WarpFiles.ExportFolder);
+                Shell.OpenFolder(WarpFiles.ExportFolder);
+                break;
+            default:
+                base.Singal(sender, message);
                 break;
         }
     }
 
-    /// <summary> The word for a border mode that goes on the button. </summary>
-    private static string BorderName(BorderMode mode) => mode switch
+    /// <summary>
+    /// The text on the border button for a mode, which is also its translation key. Each is written out whole, and not
+    /// put together from parts, so the key can be searched for.
+    /// </summary>
+    private static string BorderLabel(BorderMode mode) => mode switch
     {
-        BorderMode.All => "ALL",
-        BorderMode.Shelters => "SHELTER",
-        BorderMode.NotRooms => "TYPES",
-        _ => "NONE"
+        BorderMode.All => "BORDERS: ALL",
+        BorderMode.Shelters => "BORDERS: SHELTER",
+        BorderMode.NotRooms => "BORDERS: TYPES",
+        _ => "BORDERS: NONE"
     };
 
-    /// <summary>Saves one room's picture, with the chosen border and scale, and returns where it went.</summary>
+    /// <summary>
+    /// Saves one room's picture, with the chosen border and scale, and returns where it went. Returns null and logs
+    /// the reason if it could not be saved, whether the room cannot be read, the picture is too big or the disk
+    /// refuses it. The picture is made inside, so a failure to make it is caught too.
+    /// </summary>
+    private string TrySave(string room, Func<PixelCanvas> preview)
+    {
+        try
+        {
+            return Save(room, preview());
+        }
+        catch (Exception error)
+        {
+            WarpLog.Exception("exporting " + room, error);
+            return null;
+        }
+    }
+
+    /// <summary> The type of a room of the region, which decides whether its picture gets a border. An ordinary room if unknown. </summary>
+    private RoomType TypeOf(string room)
+    {
+        RoomInfo info = _exportRooms.FirstOrDefault(candidate => candidate.Name == room)
+                        ?? RegionCatalog.Get(_region).Rooms.FirstOrDefault(candidate => candidate.Name == room);
+        return info?.Type ?? RoomType.Room;
+    }
+
     private string Save(string room, PixelCanvas preview)
     {
-        RoomInfo info = RegionCatalog.Get(_region).Rooms.FirstOrDefault(candidate => candidate.Name == room);
-        RoomType type = info?.Type ?? RoomType.Room;
-        Rgba? border = ExportOptions.HasBorder(_border, type) ? UiColors.ToRgba(WarpState.Palette.Type((int)type)) : null;
-        PixelCanvas picture = ExportOptions.Compose(preview, _scale, border);
+        RoomType type = TypeOf(room);
+        Rgba? border = _options.HasBorder(type) ? UiColors.ToRgba(WarpState.Palette.Type(type)) : null;
+        (int width, int height) = _options.OutputSize(preview.Width, preview.Height, border != null);
+        if (!ExportOptions.Fits(width, height))
+        {
+            throw new InvalidOperationException(
+                "The picture would be " + width + " by " + height + " pixels, and Unity allows at most "
+                + ExportOptions.MaxTextureSize + " on a side. Choose a smaller scale.");
+        }
 
         string folder = WarpFiles.ExportFolderOf(_region);
         Directory.CreateDirectory(folder);
         string path = Path.Combine(folder, room + "_preview.png");
-        Texture2D texture = ToTexture(picture);
-        File.WriteAllBytes(path, texture.EncodeToPNG());
-        UnityEngine.Object.Destroy(texture);
+        Texture2D texture = ToTexture(_options.Compose(preview, border));
+        try
+        {
+            File.WriteAllBytes(path, texture.EncodeToPNG());
+        }
+        finally
+        {
+            UnityEngine.Object.Destroy(texture);
+        }
         return path;
     }
 
@@ -322,32 +424,25 @@ internal sealed class RoomPreviewDialog : Dialog
     {
         if (_progress == null)
         {
-            _progress = new FSprite("pixel", true) { x = 0f, y = 0f, scaleY = 25f, scaleX = 0f };
+            _progress = new FSprite("pixel") { x = 0f, y = 0f, scaleY = 25f, scaleX = 0f };
             _progress.SetAnchor(0f, 0.5f);
             pages[0].Container.AddChild(_progress);
         }
-        if (_exportNext < _exportTotal)
+        if (_exportNext < _exportRooms.Length)
         {
-            string room = RegionCatalog.Get(_region).Rooms[_exportNext].Name;
-            try
-            {
-                Save(room, PreviewPainter.Paint(ReadTiles(room)));
-            }
-            catch (Exception error)
-            {
-                WarpLog.Exception("exporting " + room, error);
-            }
+            string room = _exportRooms[_exportNext].Name;
+            TrySave(room, () => PreviewPainter.Paint(ReadTiles(room)));
             _exportNext++;
         }
-        _progress.scaleX = Mathf.Lerp(0f, Custom.rainWorld.options.ScreenSize.x, Mathf.InverseLerp(0, _exportTotal, _exportNext));
-        if (_exportNext < _exportTotal)
+        _progress.scaleX = Mathf.Lerp(0f, Custom.rainWorld.options.ScreenSize.x, Mathf.InverseLerp(0, _exportRooms.Length, _exportNext));
+        if (_exportNext < _exportRooms.Length)
         {
             return;
         }
 
         _exporting = false;
         _progress.alpha = 0f;
-        _exportLabel.text = Translator.Translate("Finished exporting {0} rooms").Replace("{0}", _exportTotal.ToString());
+        _exportLabel.text = Translator.Format("Finished exporting {0} rooms", _exportRooms.Length);
     }
 
     /// <summary>The row of export buttons along the bottom of the preview.</summary>
@@ -372,11 +467,11 @@ internal sealed class RoomPreviewDialog : Dialog
 
         public ExportBar(Menu.Menu menu, Page page)
         {
-            _border = Add(menu, page, "BORDERS: NONE", BorderSignal, new Vector2(683f - 300f, 30f), 130f);
-            _scale = Add(menu, page, "SCALE: X1", ScaleSignal, Next(_border), 90f);
-            WarpButton export = Add(menu, page, "EXPORT", ExportSignal, Next(_scale), 80f);
-            WarpButton region = Add(menu, page, "EXPORT REGION", ExportRegionSignal, Next(export), 120f);
-            WarpButton open = Add(menu, page, "OPEN FOLDER", OpenSignal, Next(region), 100f);
+            _border = Add(menu, page, Translator.Translate("BORDERS: NONE"), BorderSignal, new Vector2(683f - 300f, 30f), 130f);
+            _scale = Add(menu, page, Translator.Format("SCALE: X{0}", 1), ScaleSignal, Next(_border), 90f);
+            WarpButton export = Add(menu, page, Translator.Translate("EXPORT"), ExportSignal, Next(_scale), 80f);
+            WarpButton region = Add(menu, page, Translator.Translate("EXPORT REGION"), ExportRegionSignal, Next(export), 120f);
+            WarpButton open = Add(menu, page, Translator.Translate("OPEN FOLDER"), OpenSignal, Next(region), 100f);
             _all = [_border, _scale, export, region, open];
         }
 
@@ -393,13 +488,22 @@ internal sealed class RoomPreviewDialog : Dialog
             set => _scale.Text = value;
         }
 
+        /// <summary> Takes the buttons off the screen. </summary>
+        public void RemoveSprites()
+        {
+            foreach (WarpButton button in _all)
+            {
+                button.RemoveSprites();
+            }
+        }
+
         /// <summary> The place for the next button in the row: to the right of this one, with a gap. </summary>
         private static Vector2 Next(WarpButton button) => button.pos + new Vector2(button.size.x + 10f, 0f);
 
-        /// <summary> Adds one export button to the page. </summary>
+        /// <summary> Adds one export button to the page. The text is already translated. </summary>
         private static WarpButton Add(Menu.Menu menu, Page page, string text, string signal, Vector2 pos, float width)
         {
-            var button = new WarpButton(menu, page, Translator.Translate(text), signal, pos, new Vector2(width, 30f), _tint);
+            var button = new WarpButton(menu, page, text, signal, pos, new Vector2(width, 30f), _tint);
             page.subObjects.Add(button);
             return button;
         }

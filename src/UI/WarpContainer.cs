@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Menu;
 using UnityEngine;
@@ -14,8 +15,6 @@ namespace Warp.UI;
 /// </summary>
 internal sealed class WarpContainer : RectangularMenuObject
 {
-    private const float HiddenY = -2000f;
-
     private readonly RainWorldGame _game;
     private readonly PauseMenu _pause;
     private readonly FSprite _background;
@@ -28,67 +27,78 @@ internal sealed class WarpContainer : RectangularMenuObject
     private readonly Legend _legend;
     private readonly RoomGrid _grid;
     private bool _errorSoundPending;
+    private string _denShown;
+    private bool _denLabelShown;
     private StatsPanel _stats;
     private ColorEditor _editor;
 
     public WarpContainer(PauseMenu menu, MenuObject owner, Vector2 pos) : base(menu, owner, pos, Vector2.zero)
     {
-        _game = menu.game;
-        _pause = menu;
-        Vector2 screen = _game.rainWorld.options.ScreenSize;
-        Preferences preferences = WarpState.Preferences;
-        WarpState.SelectRegion(_game.world.region.name);
-
-        _background = new FSprite("LinearGradient200", true)
+        try
         {
-            color = new Color(0.01f, 0.01f, 0.01f),
-            rotation = 90f,
-            scaleY = 2f,
-            scaleX = 1250f,
-            alpha = 0.5f
-        };
-        _background.SetAnchor(1f, 0f);
-        Container.AddChild(_background);
+            _game = menu.game;
+            _pause = menu;
+            Vector2 screen = _game.rainWorld.options.ScreenSize;
+            Preferences preferences = WarpState.Preferences;
+            WarpState.SelectRegion(_game.world.region.name);
 
-        AddLabel(Translator.Translate("Warp Menu"), new Vector2(70f, LeftPanelLayout.TitleY(screen.y)), FLabelAlignment.Center)
-            .label.color = UiColors.Title;
-        _denLabel = AddLabel(Translator.Translate("Den Position: NONE"), new Vector2(screen.x - 42f, screen.y - 20f), FLabelAlignment.Right);
+            _background = new FSprite("LinearGradient200")
+            {
+                color = new Color(0.01f, 0.01f, 0.01f),
+                rotation = 90f,
+                scaleY = 2f,
+                scaleX = 1250f,
+                alpha = 0.5f
+            };
+            _background.SetAnchor(1f, 0f);
+            Container.AddChild(_background);
 
-        _statsButton = new WarpButton(menu, this, Translator.Translate("STATS"), "STATS",
-            new Vector2(75f, LeftPanelLayout.StatsButtonYFor(screen.y)), new Vector2(45f, 20f), StatsTint(preferences.ShowStats));
-        subObjects.Add(_statsButton);
+            AddLabel(Translator.Translate("Warp Menu"), new Vector2(70f, LeftPanelLayout.TitleY(screen.y)), FLabelAlignment.Center)
+                .label.color = UiColors.Title;
+            _denLabel = AddLabel(Translator.Translate("Den Position: NONE"), new Vector2(screen.x - 42f, screen.y - 20f), FLabelAlignment.Right);
 
-        _picker = new RegionPicker(menu, this, _game, WarpState.SelectedRegion, _statsButton.pos);
-        subObjects.Add(_picker);
-        _picker.RegionChosen += ChooseRegion;
-        _picker.ListToggled += ApplyLayout;
-        if (!preferences.DropdownMode)
-        {
-            _picker.SetDropdownMode(false, WarpState.SelectedRegion);
+            _statsButton = new WarpButton(menu, this, Translator.Translate("STATS"), WarpSignals.Stats,
+                new Vector2(75f, LeftPanelLayout.StatsButtonYFor(screen.y)), new Vector2(45f, 20f), StatsTint(preferences.ShowStats));
+            subObjects.Add(_statsButton);
+
+            _picker = new RegionPicker(menu, this, _game, WarpState.SelectedRegion, _statsButton.pos);
+            subObjects.Add(_picker);
+            _picker.RegionChosen += ChooseRegion;
+            _picker.ListToggled += ApplyLayout;
+            if (!preferences.DropdownMode)
+            {
+                _picker.SetDropdownMode(false, WarpState.SelectedRegion);
+            }
+
+            _listToggle = AddToggle("warpList", WarpSignals.ToggleRegionList, 22f);
+            _colorToggle = AddToggle("warpColor", WarpSignals.Colors, 57f);
+            _favouriteToggle = AddToggle("warpFav", WarpSignals.Favourite, 92f);
+
+            _legend = new Legend(menu, this);
+            subObjects.Add(_legend);
+            _legend.Changed += OnSortOrViewChanged;
+            _grid = new RoomGrid(menu, this, _game);
+            subObjects.Add(_grid);
+
+            if (preferences.ShowStats)
+            {
+                _stats = AddStats();
+            }
+            if (!string.IsNullOrEmpty(WarpState.Error))
+            {
+                var errorLabel = new MenuLabel(menu, this, WarpState.Error, new Vector2(682f, 72f), Vector2.zero, true);
+                errorLabel.label.color = UiColors.Error;
+                subObjects.Add(errorLabel);
+                _errorSoundPending = true;
+            }
+            Refresh();
         }
-
-        _listToggle = AddToggle("warpList", "TOGGLE", 22f);
-        _colorToggle = AddToggle("warpColor", "COLORS", 57f);
-        _favouriteToggle = AddToggle("warpFav", "FAV", 92f);
-
-        _legend = new Legend(menu, this);
-        subObjects.Add(_legend);
-        _legend.Changed += OnSortOrViewChanged;
-        _grid = new RoomGrid(menu, this, _game);
-        subObjects.Add(_grid);
-
-        if (preferences.ShowStats)
+        catch
         {
-            _stats = AddStats();
+            // Take back what was added to the screen, so the pause menu is left as the game made it
+            RemoveSprites();
+            throw;
         }
-        if (WarpState.Error != "")
-        {
-            var errorLabel = new MenuLabel(menu, this, WarpState.Error, new Vector2(682f, 72f), Vector2.zero, true);
-            errorLabel.label.color = UiColors.Error;
-            subObjects.Add(errorLabel);
-            _errorSoundPending = true;
-        }
-        Refresh();
     }
 
     /// <summary>Whether the room preview is open, which keeps the controls from moving under it.</summary>
@@ -171,8 +181,7 @@ internal sealed class WarpContainer : RectangularMenuObject
         _legend.Place(layout);
         foreach (WarpSymbolButton toggle in new[] { _listToggle, _colorToggle, _favouriteToggle })
         {
-            toggle.pos.y = layout.ToggleY;
-            toggle.lastPos.y = layout.ToggleY;
+            toggle.SetY(layout.ToggleY);
         }
         if (_stats != null && layout.Stats is { } placement)
         {
@@ -191,37 +200,41 @@ internal sealed class WarpContainer : RectangularMenuObject
             WarpState.ClearError();
             _errorSoundPending = false;
         }
-        float y = WarpState.Preferences.ShowMenu ? 0f : HiddenY;
-        pos.y = y;
-        lastPos.y = y;
+        this.SetY(WarpState.Preferences.ShowMenu ? 0f : UiLayout.OffScreenY);
 
         _favouriteToggle.Tint = WarpState.Favourites.Contains(WarpState.SelectedRegion) ? UiColors.Favourite : UiColors.Plain;
+        ShowDenPosition();
         ShowHint();
         OpenPreviewOnRightClick();
     }
 
-    /// <summary>The help line at the bottom of the pause menu, for whatever the pointer is over.</summary>
+    /// <summary> A help line, the text of which is also its translation key, and when it applies. </summary>
+    private sealed record Hint(Func<WarpContainer, bool> IsShown, string Text);
+
+    /// <summary> The help lines, in order. When more than one applies the last one is shown. </summary>
+    private static readonly Hint[] _hints =
+    [
+        new(container => container._grid.IsHot, "Left click: Warp    -    Right click: Preview"),
+        new(container => container._picker.IsHot, "Left click: Load Region    -    Shift click: Reload Region"),
+        new(container => IsHot(container._listToggle),
+            "Toggle the region list between list view and button view #SEPARATOR# Shift click to toggle alphabetical sorting"),
+        // The spelling "customiser" is the key in the translation files, so it has to stay as it is
+        new(container => IsHot(container._colorToggle),
+            "Opens the colour customiser where you can change the colors for room types, sizes and subregions"),
+        new(container => IsHot(container._favouriteToggle),
+            "Toggle whether this region is favourited, putting it to the top of the list")
+    ];
+
+    /// <summary> The help line at the bottom of the pause menu, for whatever the pointer is over. Only the one shown is translated. </summary>
     private void ShowHint()
     {
-        var hints = new (bool Hot, string Text)[]
-        {
-            (_grid.IsHot, Translator.Translate("Left click: Warp    -    Right click: Preview")),
-            (_picker.IsHot, Translator.Translate("Left click: Load Region    -    Shift click: Reload Region")),
-            (IsHot(_listToggle), Translator.TranslateWithSeparator(
-                "Toggle the region list between list view and button view #SEPARATOR# Shift click to toggle alphabetical sorting")),
-            (IsHot(_colorToggle), Translator.Translate(
-                "Opens the colour customizer where you can change the colors for room types, sizes and subregions")),
-            (IsHot(_favouriteToggle), Translator.Translate(
-                "Toggle whether this region is favourited, putting it to the top of the list"))
-        };
-        // Later entries win when more than one is hot
-        (bool Hot, string Text) hint = hints.LastOrDefault(entry => entry.Hot);
-        if (!hint.Hot)
+        Hint hint = _hints.LastOrDefault(candidate => candidate.IsShown(this));
+        if (hint == null)
         {
             return;
         }
 
-        _pause.infoLabel.text = hint.Text;
+        _pause.infoLabel.text = Translator.TranslateWithSeparator(hint.Text);
         _pause.infoLabel.alpha = 1f;
     }
 
@@ -247,40 +260,50 @@ internal sealed class WarpContainer : RectangularMenuObject
         ApplyLayout();
     }
 
-    public override void GrafUpdate(float timeStacker)
+    /// <summary> Shows the den position, in words that depend on whether one is set. Translated only when it changes. </summary>
+    private void ShowDenPosition()
     {
-        base.GrafUpdate(timeStacker);
         string den = WarpState.DenPosition;
-        _denLabel.label.text = Translator.TranslateWithSeparator(den == null
-                ? "Den Position: {0} #SEPARATOR# Hold shift + click a room to assign"
-                : "Den Position: {0} #SEPARATOR# Press C to clear")
-            .Replace("{0}", Translator.Translate(den ?? "NONE"));
+        if (_denLabelShown && den == _denShown)
+        {
+            return;
+        }
+
+        string text = den == null
+            ? "Den Position: {0} #SEPARATOR# Hold shift + click a room to assign"
+            : "Den Position: {0} #SEPARATOR# Press C to clear";
+        _denLabel.label.text = Translator.Format(text, Translator.Translate(den ?? "NONE")).Replace("#SEPARATOR#", "|");
+        _denShown = den;
+        _denLabelShown = true;
     }
 
     public override void RemoveSprites()
     {
         base.RemoveSprites();
-        _background.RemoveFromContainer();
+        _background?.RemoveFromContainer();
     }
 
     // ---- Signals --------------------------------------------------------------------------------------------------
 
     public override void Singal(MenuObject sender, string message)
     {
-        base.Singal(sender, message);
         switch (message)
         {
-            case "STATS":
+            case WarpSignals.Stats:
                 ToggleStats();
                 break;
-            case "FAV":
+            case WarpSignals.Favourite:
                 ToggleFavourite();
                 break;
-            case "TOGGLE":
+            case WarpSignals.ToggleRegionList:
                 ToggleRegionList();
                 break;
-            case "COLORS":
+            case WarpSignals.Colors:
                 OpenColorEditor();
+                break;
+            default:
+                // Not ours: a room button's message, which the pause menu hook has to see
+                base.Singal(sender, message);
                 break;
         }
     }
@@ -306,8 +329,7 @@ internal sealed class WarpContainer : RectangularMenuObject
         {
             return;
         }
-        RemoveSubObject(_stats);
-        _stats.RemoveSprites();
+        this.RemoveAll([_stats]);
         _stats = null;
     }
 
@@ -357,8 +379,7 @@ internal sealed class WarpContainer : RectangularMenuObject
 
     private void CloseColorEditor()
     {
-        _editor.RemoveSprites();
-        RemoveSubObject(_editor);
+        this.RemoveAll([_editor]);
         _editor = null;
         if (WarpState.Preferences.ShowStats)
         {

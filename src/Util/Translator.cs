@@ -17,6 +17,20 @@ internal static class Translator
         return string.IsNullOrEmpty(translated) || translated == NoTranslation ? text : translated;
     }
 
+    /// <summary>
+    /// The translation of text with "{0}", "{1}" and so on in it, with the arguments put in afterwards. Translate the
+    /// text with its placeholders, so there is one entry for it in the translation files and not one for each value.
+    /// </summary>
+    public static string Format(string text, params object[] arguments)
+    {
+        string result = Translate(text);
+        for (int i = 0; i < arguments.Length; i++)
+        {
+            result = result.Replace("{" + i + "}", arguments[i]?.ToString());
+        }
+        return result;
+    }
+
     /// <summary>The translation of text that has a "#SEPARATOR#" in it,
     /// which stands for a "|" the translator may move.</summary>
     public static string TranslateWithSeparator(string text) => Translate(text).Replace("#SEPARATOR#", "|");

@@ -32,9 +32,20 @@ internal enum SlopeDirection
 /// <param name="VerticalBeam">Whether a vertical pole runs through the tile.</param>
 /// <param name="HorizontalBeam">Whether a horizontal pole runs through the tile.</param>
 /// <param name="WallBehind">Whether there is a back wall behind the tile.</param>
-/// <param name="ShortCut">0 for none, 1 for a shortcut's path, 2 an exit, 3 a den, 4 a whack-a-mole hole, 5 a gate room.</param>
+/// <param name="Shortcut">What part of a shortcut the tile is, if any.</param>
 internal readonly record struct Tile(
-    Terrain Terrain, bool VerticalBeam, bool HorizontalBeam, bool WallBehind, int ShortCut);
+    Terrain Terrain, bool VerticalBeam, bool HorizontalBeam, bool WallBehind, ShortcutKind Shortcut);
+
+/// <summary> What part of a shortcut a tile is. </summary>
+internal enum ShortcutKind
+{
+    None,
+    Path,
+    Exit,
+    Den,
+    WhackAMole,
+    GateRoom
+}
 
 /// <summary>
 /// The tiles of a room, read from its room file. Tile (0, 0) is the bottom left.
@@ -95,21 +106,29 @@ internal sealed class RoomTiles
         return new RoomTiles(tiles, water);
     }
 
+    /// <summary> The terrain a number in a room file stands for. A number that is not a known terrain reads as air. </summary>
+    private static Terrain ParseTerrain(string text)
+    {
+        bool known = int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
+                     && Enum.IsDefined(typeof(Terrain), value);
+        return known ? (Terrain)value : Terrain.Air;
+    }
+
     /// <summary> A tile from one "terrain,flag,flag" cell of a room file. </summary>
     private static Tile ParseTile(string[] fields)
     {
-        var tile = new Tile((Terrain)int.Parse(fields[0], NumberStyles.Any, CultureInfo.InvariantCulture), false, false, false, 0);
+        var tile = new Tile(ParseTerrain(fields[0]), false, false, false, ShortcutKind.None);
         for (int i = 1; i < fields.Length; i++)
         {
             tile = fields[i] switch
             {
                 "1" => tile with { VerticalBeam = true },
                 "2" => tile with { HorizontalBeam = true },
-                "3" => tile.ShortCut < 1 ? tile with { ShortCut = 1 } : tile,
-                "4" => tile with { ShortCut = 2 },
-                "5" => tile with { ShortCut = 3 },
-                "9" => tile with { ShortCut = 4 },
-                "12" => tile with { ShortCut = 5 },
+                "3" => tile.Shortcut == ShortcutKind.None ? tile with { Shortcut = ShortcutKind.Path } : tile,
+                "4" => tile with { Shortcut = ShortcutKind.Exit },
+                "5" => tile with { Shortcut = ShortcutKind.Den },
+                "9" => tile with { Shortcut = ShortcutKind.WhackAMole },
+                "12" => tile with { Shortcut = ShortcutKind.GateRoom },
                 "6" => tile with { WallBehind = true },
                 _ => tile
             };
@@ -128,14 +147,14 @@ internal sealed class RoomTiles
             return _tiles[x, y];
         }
         Tile edge = _tiles[Math.Min(Math.Max(x, 0), Width - 1), Math.Min(Math.Max(y, 0), Height - 1)];
-        if (edge.Terrain != Terrain.ShortcutEntrance && edge.ShortCut == 0)
+        if (edge.Terrain != Terrain.ShortcutEntrance && edge.Shortcut == ShortcutKind.None)
         {
             return edge;
         }
         return edge with
         {
             Terrain = edge.Terrain != Terrain.ShortcutEntrance ? edge.Terrain : Terrain.Solid,
-            ShortCut = 0
+            Shortcut = ShortcutKind.None
         };
     }
 

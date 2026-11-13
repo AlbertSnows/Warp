@@ -15,10 +15,12 @@ using Warp.Util;
 namespace Warp;
 
 /// <summary>
-/// The mod's entry point. The plugin id is this fork's own, so it can be installed beside Lee Moriya's Warp Menu
-/// without BepInEx treating the two as one plugin. Both mods hook the same game methods, so only one should be enabled.
+/// The mod's entry point. The plugin id is this fork's own, so BepInEx does not take it for Lee Moriya's Warp Menu.
+/// The two add the same menu and hook the same game methods, so this one declares the original incompatible and
+/// BepInEx will not load it beside the original.
 /// </summary>
-[BepInPlugin("AJ_Snow.WarpForMeadow", "Warp For Meadow", "1.9.1")]
+[BepInPlugin(PluginInfo.Guid, PluginInfo.Name, PluginInfo.Version)]
+[BepInIncompatibility(PluginInfo.UpstreamGuid)]
 public class WarpMod : BaseUnityPlugin
 {
     private bool _initialized;

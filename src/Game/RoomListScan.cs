@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using UnityEngine;
 using Warp.Model;
@@ -58,21 +57,22 @@ internal static class RoomListScan
         Export();
     }
 
+    /// <summary> Abandons a scan that is part way through. A new pause menu starts fresh, so a half-done scan is not carried over. </summary>
+    public static void Reset() => _state.Reset(new Scan(false, 0));
+
     /// <summary>
-    /// Writes the regions read so far to the room list file and opens it. Failing to open the file is logged, not
-    /// thrown.
+    /// Writes the regions read so far, in order of their names, to the room list file and opens it. Nothing is opened
+    /// if the file could not be written.
     /// </summary>
     private static void Export()
     {
-        IEnumerable<KeyValuePair<string, RoomInfo[]>> regions = RegionCatalog.All.Select(pair => new KeyValuePair<string, RoomInfo[]>(pair.Key, pair.Value.Rooms));
+        IEnumerable<KeyValuePair<string, RoomInfo[]>> regions = RegionCatalog.All
+            .OrderBy(pair => pair.Key, System.StringComparer.Ordinal)
+            .Select(pair => new KeyValuePair<string, RoomInfo[]>(pair.Key, pair.Value.Rooms));
         string path = WarpFiles.WriteRoomList(RoomListExport.Format(regions));
-        try
+        if (path != null)
         {
-            Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
-        }
-        catch (System.Exception error)
-        {
-            WarpLog.Error("Failed to open " + path + ": " + error.Message);
+            Shell.OpenFile(path);
         }
     }
 }

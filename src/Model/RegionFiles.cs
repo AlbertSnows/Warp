@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace Warp.Model;
 
@@ -55,42 +54,39 @@ internal static class RegionFiles
     private static RoomInfo? ParseRoomLine(string line, string region)
     {
         string[] parts = line.Split([" : "], StringSplitOptions.None);
-        string first = parts[0];
-        if (!first.Contains(region + "_") && !first.Contains(GatePrefix))
+        string name = StripCondition(parts[0]);
+        // The name has to start with the region's prefix, so region SU does not take a room of region LSU
+        if (!name.StartsWith(region + "_", StringComparison.Ordinal) && !name.StartsWith(GatePrefix, StringComparison.Ordinal))
         {
             return null;
         }
-        return new RoomInfo(StripCondition(first), parts.Length > 2 ? TypeFromTag(parts[2]) : RoomType.Room);
+        return new RoomInfo(name, parts.Length > 2 ? RoomTypes.FromWorldTag(parts[2]) : RoomType.Room);
     }
 
     /// <summary>
-    /// A room name without the condition in front of it: "{Spear}SU_A01" and "(White)SU_A01" both give "SU_A01".
+    /// A room name without the conditions in front of it: "{Spear}SU_A01", "(White)SU_A01" and "{Spear}(White)SU_A01"
+    /// all give "SU_A01". Only groups at the start are conditions, and a group that is never closed is left alone.
     /// </summary>
-    private static string StripCondition(string name)
+    internal static string StripCondition(string name)
     {
-        if (name.Contains("}"))
+        string rest = name;
+        while (rest.Length > 0 && (rest[0] == '{' || rest[0] == '('))
         {
-            return name.Split('}')[1];
+            int end = rest.IndexOf(rest[0] == '{' ? '}' : ')');
+            if (end < 0)
+            {
+                break;
+            }
+            rest = rest.Substring(end + 1);
         }
-        return name.Contains(")") ? name.Split(')')[1] : name;
+        return rest;
     }
-
-    /// <summary> The room type a world file tag stands for. A missing or unknown tag is an ordinary room. </summary>
-    private static RoomType TypeFromTag(string tag) => tag switch
-    {
-        "GATE" => RoomType.Gate,
-        "SHELTER" => RoomType.Shelter,
-        "SWARMROOM" => RoomType.SwarmRoom,
-        "SCAVTRADER" => RoomType.ScavTrader,
-        "SCAVOUTPOST" => RoomType.ScavOutpost,
-        _ => RoomType.Room
-    };
 
     /// <summary>
     /// The room names in a spoilers file. Lines that start with "//" are comments.
     /// </summary>
     public static HashSet<string> ParseSpoilers(IEnumerable<string> lines)
-        => [.. lines.Where(line => !line.StartsWith("//")).Select(line => line.Trim())];
+        => [.. lines.Where(line => !line.StartsWith("//", StringComparison.Ordinal)).Select(line => line.Trim())];
 
     /// <summary>
     /// How many screens a room has, from the lines of its room file. The camera positions are on the fourth line,
@@ -103,7 +99,7 @@ internal static class RegionFiles
         {
             return null;
         }
-        return Math.Max(1, roomFileLines[cameraLine].Split('|').Length);
+        return roomFileLines[cameraLine].Split('|').Length;
     }
 
     /// <summary>
@@ -115,7 +111,7 @@ internal static class RegionFiles
         IEnumerable<string> lines, string noneLabel, Func<string, string> spaceAfterColon)
     {
         IEnumerable<string> names = lines
-            .Where(line => line.StartsWith("Subregion"))
+            .Where(line => line.StartsWith("Subregion", StringComparison.Ordinal))
             .Select(line => SplitField(spaceAfterColon(line)))
             .Where(fields => fields.Length > 1)
             .Select(fields => fields[1]);
@@ -135,7 +131,7 @@ internal static class RegionFiles
         var result = new Dictionary<string, int>();
         foreach (string line in lines)
         {
-            if (line.StartsWith("Off") || line.StartsWith("Connection"))
+            if (line.StartsWith("Off", StringComparison.Ordinal) || line.StartsWith("Connection", StringComparison.Ordinal))
             {
                 continue;
             }
@@ -152,7 +148,7 @@ internal static class RegionFiles
     /// <summary> The index of the subregion a map line names, matched against the region's subregion names. 0 if none matches. </summary>
     private static int Subregion(string mapData, IReadOnlyList<string> subregionNames)
     {
-        string[] data = Regex.Split(mapData, "><");
+        string[] data = mapData.Split(["><"], StringSplitOptions.None);
         string name = data.Length >= 6 ? data[5].Trim() : "";
         for (int i = subregionNames.Count - 1; i >= 1; i--)
         {

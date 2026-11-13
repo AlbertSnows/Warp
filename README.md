@@ -1,4 +1,6 @@
-# Rain World Warp Menu ![GitHub all releases](https://img.shields.io/github/downloads/LeeMoriya/Warp/total?style=for-the-badge)
+# Warp For Meadow
+
+The code is under the Mozilla Public License 2.0; see [LICENSE](LICENSE).
 
 Warp For Meadow is a fork of [Warp Menu](https://github.com/LeeMoriya/Warp) by LeeMoriya. It keeps the menu and reworks the code underneath, and it loads regions without freezing the game so it can be used with Rain Meadow.
 
@@ -14,7 +16,8 @@ Warp versions v.86.0 and above are for Rain World v1.10
 
 ## Download:
 
-Get the latest release [Here](https://github.com/LeeMoriya/Warp/releases/tag/v1.85.0)
+There are no prebuilt releases yet. Build it (below), or find it on the Steam Workshop once it is published. The
+original Warp Menu is [here](https://github.com/LeeMoriya/Warp/releases).
 
 ## Building:
 The code uses C# 12, so it needs the .NET 8 SDK. It also needs Rain World with BepInEx 
@@ -31,6 +34,13 @@ The project looks for the game in the usual Steam folders. If yours is somewhere
     dotnet build -c Release -p:RainWorldDir="/path/to/Rain World"
 
 The result is `bin/Release/Warp.dll`.
+
+To stage the whole mod as the game and the Workshop expect it, with its `modinfo.json`, sprites and translations, run:
+
+    dotnet build Warp.csproj -c Release -t:PackageMod
+
+The folder is `bin/package/warp-for-meadow`. Put your own `thumbnail.png` in `package/` first to have it included. The
+mod id, name and description are in `package/modinfo.json`; the version is the one in `Warp.csproj`.
 
 A Debug build, which is what `dotnet build` does when you leave out `-c Release`, is written straight into the game's `RainWorld_Data/StreamingAssets/mods/warp/newest/plugins` folder if that folder exists, so a change can be tried in the game at once. **That overwrites the Warp in that folder.** To build a Debug version without that, add `-p:DeployToGame=false`, and it goes to `bin/Debug` instead. Without a `mods/warp` folder, Debug builds always go to `bin/Debug`.
 

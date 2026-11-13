@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+using System.Linq;
 
 namespace Warp.Switching;
 
@@ -8,8 +8,16 @@ namespace Warp.Switching;
 internal static class PlayerOps
 {
     /// <summary>
-    /// Let go of any creature the creature is holding, so it is not dragged along into the new room. Another
-    /// player or a slugpup is kept, because it is meant to come along.
+    /// Whether the players can be moved: each alive player has a body, and none is in the shortcut system. A player in
+    /// a shortcut that is placed in a room is left stuck there.
+    /// </summary>
+    public static bool PlayersCanMove(RainWorldGame game)
+        => game.AlivePlayers.All(player => player.realizedCreature is Player { inShortcut: false });
+
+    /// <summary>
+    /// Lets go of any creature the creature is holding, so it is not dragged along into the new room. A slugpup is
+    /// kept, because it is meant to come along. Another player is let go too: every alive player is moved by the
+    /// warp anyway, so none is left behind, but a grasp on one does not survive the move.
     /// </summary>
     public static void ReleaseHeldCreatures(Creature creature)
     {
@@ -20,28 +28,9 @@ internal static class PlayerOps
         for (int i = 0; i < creature.grasps.Length; i++)
         {
             Creature.Grasp grasp = creature.grasps[i];
-            if (grasp?.grabbed is Creature held && !grasp.discontinued && !(held is Player { isSlugpup: true }))
+            if (grasp is { grabbed: Creature and not Player { isSlugpup: true }, discontinued: false })
             {
                 creature.ReleaseGrasp(i);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Removes the later copies of each object from the list, keeping the first. An object that was added to a room
-    /// twice would otherwise be updated twice a frame.
-    /// </summary>
-    public static void RemoveDuplicates(List<UpdatableAndDeletable> updateList, IEnumerable<UpdatableAndDeletable> objects)
-    {
-        foreach (UpdatableAndDeletable item in objects)
-        {
-            int first = updateList.IndexOf(item);
-            for (int i = updateList.Count - 1; first >= 0 && i > first; i--)
-            {
-                if (updateList[i] == item)
-                {
-                    updateList.RemoveAt(i);
-                }
             }
         }
     }

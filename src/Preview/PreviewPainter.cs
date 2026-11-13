@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using Warp.Model;
 
 namespace Warp.Preview;
 
@@ -21,15 +22,31 @@ internal static class PreviewPainter
     private static readonly Rgba _water = new(0f, 0.5f, 1f);
     private const float WaterTint = 0.2f;
 
-    private static readonly Dictionary<int, Rgba> _shortcutMarks = new()
+    private static readonly Dictionary<ShortcutKind, Rgba> _shortcutMarks = new()
     {
-        [2] = new Rgba(0.2f, 1f, 0.2f),
-        [3] = new Rgba(1f, 0.2f, 0.2f),
-        [4] = new Rgba(0.2f, 0.2f, 1f),
-        [5] = new Rgba(1f, 1f, 0.2f)
+        [ShortcutKind.Exit] = new Rgba(0.2f, 1f, 0.2f),
+        [ShortcutKind.Den] = new Rgba(1f, 0.2f, 0.2f),
+        [ShortcutKind.WhackAMole] = new Rgba(0.2f, 0.2f, 1f),
+        [ShortcutKind.GateRoom] = new Rgba(1f, 1f, 0.2f)
     };
 
     private static readonly (int X, int Y)[] _plus = [(1, 0), (0, 1), (2, 1), (1, 2), (1, 1)];
+
+    /// <summary>
+    /// The room tile under the pointer in the enlarged preview, or null if the pointer is outside the room. The
+    /// preview is centered on the sprite and each tile is <see cref="TileSize"/> texture pixels.
+    /// </summary>
+    public static TileCoord? TileAt(
+        float pointerX, float pointerY, float spriteX, float spriteY, float spriteScale, int width, int height)
+    {
+        float x = (pointerX - spriteX) / (spriteScale * TileSize) + width / 2f;
+        float y = (pointerY - spriteY) / (spriteScale * TileSize) + height / 2f;
+        if (x <= 0 || x >= width || y <= 0 || y >= height)
+        {
+            return null;
+        }
+        return new TileCoord((int)Math.Floor(x), (int)Math.Floor(y));
+    }
 
     /// <summary> Draws the room, three pixels to a tile. </summary>
     public static PixelCanvas Paint(RoomTiles room)
@@ -56,11 +73,11 @@ internal static class PreviewPainter
 
         if (tile.WallBehind)
         {
-            canvas.Fill(x, y, 3, 3, _wallBehind);
+            canvas.Fill(x, y, TileSize, TileSize, _wallBehind);
         }
         if (tile.Terrain == Terrain.Solid)
         {
-            canvas.Fill(x, y, 3, 3, _rock);
+            canvas.Fill(x, y, TileSize, TileSize, _rock);
         }
         PaintSlope(canvas, room.SlopeAt(tx, ty), x, y);
         if (tile.Terrain == Terrain.Floor)
@@ -79,7 +96,7 @@ internal static class PreviewPainter
         {
             TintWater(canvas, x, y);
         }
-        PaintShortcut(canvas, tile.ShortCut, x, y);
+        PaintShortcut(canvas, tile.Shortcut, x, y);
         if (tile.Terrain == Terrain.ShortcutEntrance)
         {
             PaintEntrance(canvas, room, tx, ty, x, y);
@@ -133,9 +150,9 @@ internal static class PreviewPainter
     /// <summary>
     /// Marks a tile that is part of a shortcut: a dot for the path, a colored plus for the end of it.
     /// </summary>
-    private static void PaintShortcut(PixelCanvas canvas, int shortcut, int x, int y)
+    private static void PaintShortcut(PixelCanvas canvas, ShortcutKind shortcut, int x, int y)
     {
-        if (shortcut == 1)
+        if (shortcut == ShortcutKind.Path)
         {
             canvas.Set(x + 1, y + 1, _shortcutPath);
         }
@@ -151,19 +168,19 @@ internal static class PreviewPainter
     /// <summary>A shortcut entrance is drawn as a short line on the side the shortcut path leaves from.</summary>
     private static void PaintEntrance(PixelCanvas canvas, RoomTiles room, int tx, int ty, int x, int y)
     {
-        if (room.At(tx - 1, ty).ShortCut > 0)
+        if (room.At(tx - 1, ty).Shortcut != ShortcutKind.None)
         {
             Line(canvas, x, y, (2, 0), (2, 1), (2, 2));
         }
-        if (room.At(tx + 1, ty).ShortCut > 0)
+        if (room.At(tx + 1, ty).Shortcut != ShortcutKind.None)
         {
             Line(canvas, x, y, (0, 0), (0, 1), (0, 2));
         }
-        if (room.At(tx, ty + 1).ShortCut > 0)
+        if (room.At(tx, ty + 1).Shortcut != ShortcutKind.None)
         {
             Line(canvas, x, y, (0, 0), (1, 0), (2, 0));
         }
-        if (room.At(tx, ty - 1).ShortCut > 0)
+        if (room.At(tx, ty - 1).Shortcut != ShortcutKind.None)
         {
             Line(canvas, x, y, (0, 2), (1, 2), (2, 2));
         }

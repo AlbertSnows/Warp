@@ -16,8 +16,6 @@ namespace Warp.UI;
 /// </summary>
 internal sealed class Legend : RectangularMenuObject
 {
-    /// <summary>The label of each button and the end of its signal: "S" or "V" in front says sort or view.</summary>
-    private static readonly string[] _buttonCodes = ["TYPE", "SIZE", "SUB"];
 
     private readonly MenuLabel _filterLabel;
     private readonly List<WarpButton> _sortButtons;
@@ -33,8 +31,8 @@ internal sealed class Legend : RectangularMenuObject
         _filterLabel = new MenuLabel(menu, this, Translator.TranslateWithSeparator("SORT     #SEPARATOR#     VIEW"),
             new Vector2(72f, 0f), Vector2.zero, false);
         subObjects.Add(_filterLabel);
-        _sortButtons = MakeButtons("S", 22f);
-        _viewButtons = MakeButtons("V", 77f);
+        _sortButtons = MakeButtons(WarpSignals.ForSort, 22f);
+        _viewButtons = MakeButtons(WarpSignals.ForView, 77f);
     }
 
     /// <summary>Called after the player picks another sort or view, once the preferences have been saved.</summary>
@@ -52,10 +50,10 @@ internal sealed class Legend : RectangularMenuObject
     /// <summary>
     /// Adds a column of three buttons, one for each grouping. The prefix says whether they sort or view.
     /// </summary>
-    private List<WarpButton> MakeButtons(string prefix, float x)
+    private List<WarpButton> MakeButtons(Func<Grouping, string> signalFor, float x)
     {
-        var buttons = Enumerable.Range(0, _buttonCodes.Length)
-            .Select(i => new WarpButton(menu, this, Translator.Translate(_buttonCodes[i]), prefix + _buttonCodes[i],
+        var buttons = Groupings.All
+            .Select(grouping => new WarpButton(menu, this, Translator.Translate(grouping.Code()), signalFor(grouping),
                 new Vector2(x, 0f), new Vector2(45f, 23f), UiColors.ChoiceButton))
             .ToList();
         buttons.ForEach(subObjects.Add);
@@ -79,24 +77,25 @@ internal sealed class Legend : RectangularMenuObject
             // Sizes sit next to each other, 10 apart
             for (int i = 0; i < _keyEntries.Count; i++)
             {
-                _keyEntries[i].pos.x = 25f + 10f * i;
-                _keyEntries[i].lastPos.x = _keyEntries[i].pos.x;
+                _keyEntries[i].SetX(25f + 10f * i);
             }
         }
 
-        if (sort != Grouping.Subregion || view == Grouping.Subregion)
+        if (sort == Grouping.Subregion && view != Grouping.Subregion)
         {
-            return;
+            AddSubregionList(region);
         }
+    }
 
+    /// <summary> Adds the list of the region's subregions by number, which names the groups when sorting by subregion. </summary>
+    private void AddSubregionList(RegionData region)
+    {
+        _subregionLabel = AddLabel(Translator.Translate("SUBREGION"), 22f);
+        for (int i = 0; i < region.SubregionNames.Length; i++)
         {
-            _subregionLabel = AddLabel(Translator.Translate("SUBREGION"), 22f);
-            for (int i = 0; i < region.SubregionNames.Length; i++)
-            {
-                MenuLabel entry = AddLabel(i + " - " + region.SubregionNames[i], 25f);
-                entry.label.color = UiColors.ToColor(ColorPalette.DefaultSubregion(i));
-                _subregionEntries.Add(entry);
-            }
+            MenuLabel entry = AddLabel(i + " - " + region.SubregionNames[i], 25f);
+            entry.label.color = UiColors.ToColor(ColorPalette.DefaultSubregion(i));
+            _subregionEntries.Add(entry);
         }
     }
 
@@ -118,8 +117,7 @@ internal sealed class Legend : RectangularMenuObject
     {
         return view switch
         {
-            Grouping.Type => Enum.GetNames(typeof(RoomType))
-                .Select((name, i) => (Translator.Translate(name), palette.Type(i))),
+            Grouping.Type => RoomTypes.All.Select(info => (Translator.Translate(info.KeyLabel), palette.Type(info.Type))),
             Grouping.Size => Enumerable.Range(1, ColorPalette.SizeCount)
                 .Select(i => (i < ColorPalette.SizeCount ? i.ToString() : i + "+", palette.Size(i))),
             _ => region.SubregionNames.Select((name, i) => (name, palette.Subregion(region.Region, i)))
@@ -142,16 +140,7 @@ internal sealed class Legend : RectangularMenuObject
     /// <summary>Removes the key and the subregion list, as when the color editor takes over the screen.</summary>
     public void ClearKey()
     {
-        foreach (MenuLabel item in _keyEntries.Concat(_subregionEntries).Concat([_keyLabel, _subregionLabel]))
-        {
-            if (item == null)
-            {
-                continue;
-            }
-
-            item.RemoveSprites();
-            RemoveSubObject(item);
-        }
+        this.RemoveAll([.. _keyEntries, .. _subregionEntries, _keyLabel, _subregionLabel]);
         _keyEntries.Clear();
         _subregionEntries.Clear();
         _keyLabel = null;
@@ -161,35 +150,26 @@ internal sealed class Legend : RectangularMenuObject
     /// <summary>Puts every part at the height the panel layout gives it.</summary>
     public void Place(LeftPanelLayout layout)
     {
-        SetY(_filterLabel, layout.FilterLabelY);
+        _filterLabel.SetY(layout.FilterLabelY);
         for (int i = 0; i < _sortButtons.Count; i++)
         {
-            SetY(_sortButtons[i], layout.ButtonRowYs[i]);
-            SetY(_viewButtons[i], layout.ButtonRowYs[i]);
+            _sortButtons[i].SetY(layout.ButtonRowYs[i]);
+            _viewButtons[i].SetY(layout.ButtonRowYs[i]);
         }
-        if (_keyLabel != null)
-        {
-            SetY(_keyLabel, layout.KeyLabelY);
-        }
+
+        _keyLabel?.SetY(layout.KeyLabelY);
         for (int i = 0; i < _keyEntries.Count && i < layout.ColorKeyYs.Length; i++)
         {
-            SetY(_keyEntries[i], layout.ColorKeyYs[i]);
+            _keyEntries[i].SetY(layout.ColorKeyYs[i]);
         }
         if (_subregionLabel != null && layout.SubregionLabelY is { } subregionY)
         {
-            SetY(_subregionLabel, subregionY);
+            _subregionLabel.SetY(subregionY);
         }
         for (int i = 0; i < _subregionEntries.Count && i < layout.SubregionYs.Length; i++)
         {
-            SetY(_subregionEntries[i], layout.SubregionYs[i]);
+            _subregionEntries[i].SetY(layout.SubregionYs[i]);
         }
-    }
-
-    /// <summary> Moves a control to a height, without sliding. </summary>
-    private static void SetY(RectangularMenuObject item, float y)
-    {
-        item.pos.y = y;
-        item.lastPos.y = y;
     }
 
     /// <summary> Colors the buttons for the chosen sort and view green, and the others grey. </summary>
@@ -216,15 +196,14 @@ internal sealed class Legend : RectangularMenuObject
     /// </summary>
     public override void Singal(MenuObject sender, string message)
     {
-        base.Singal(sender, message);
-        int index = Array.IndexOf(_buttonCodes, message.Length > 1 ? message.Substring(1) : "");
-        if (index < 0 || (message[0] != 'S' && message[0] != 'V'))
+        if (WarpSignals.GroupingChoiceOf(message) is not { } choice)
         {
+            base.Singal(sender, message);
             return;
         }
-        var grouping = (Grouping)index;
-        // Sorting by something also colors by it; coloring by something leaves the sort alone
-        WarpState.UpdatePreferences(p => message[0] == 'S' ? p with { Sort = grouping, View = grouping } : p with { View = grouping });
+
+        // Handled here, so it goes no further than this
+        WarpState.UpdatePreferences(p => choice.Sorting ? p.WithSort(choice.Grouping) : p.WithView(choice.Grouping));
         Changed?.Invoke();
     }
 }

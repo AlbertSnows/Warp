@@ -45,6 +45,8 @@ internal sealed record LeftPanelLayout(
 
     /// <summary> With this many regions or more, the region button grid gets a fourth column. </summary>
     private const int WideGridThreshold = 50;
+    private const int WideColumns = 4;
+    private const int NarrowColumns = 3;
     private const float ButtonGridRowHeight = 27f;
 
     /// <summary>The height of the title line, which the region picker hangs from.</summary>
@@ -115,7 +117,7 @@ internal sealed record LeftPanelLayout(
         bool subregionsRunLow = subYs.Length > 0 && subYs[subYs.Length - 1] < 320f;
         if (buttonMode || subregionsRunLow)
         {
-            float x = buttonMode ? (input.RegionButtons > WideGridThreshold ? 130f : 110f) : 160f;
+            float x = buttonMode ? (GridColumns(input.RegionButtons) == WideColumns ? 130f : 110f) : 160f;
             return new StatsPlacement(x, 0f, statsButtonY - 15f);
         }
         float lastKeyY = keyYs.Length > 0 ? keyYs[keyYs.Length - 1] : 0f;
@@ -124,7 +126,7 @@ internal sealed record LeftPanelLayout(
     }
 
     /// <summary>How many columns the region button grid has. A crowded install gets one more.</summary>
-    public static int GridColumns(int regionCount) => regionCount >= WideGridThreshold ? 4 : 3;
+    public static int GridColumns(int regionCount) => regionCount >= WideGridThreshold ? WideColumns : NarrowColumns;
 
     /// <summary> The index of the last row of the region button grid, which is what decides its height. </summary>
     public static int LastRow(int buttonCount) => buttonCount == 0 ? 0 : (buttonCount - 1) / GridColumns(buttonCount);

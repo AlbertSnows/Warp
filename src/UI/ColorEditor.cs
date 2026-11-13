@@ -15,20 +15,17 @@ namespace Warp.UI;
 /// </summary>
 internal sealed class ColorEditor : RectangularMenuObject, Slider.ISliderOwner
 {
-    private const string Done = "DONE";
-    private const string Save = "SAVE";
-    private const string CategoryPrefix = "C";
-    private const string ColorPrefix = "X";
     private const float SliderMax = 0.99f;
 
     private static readonly Color _chosen = new(0.8f, 0.8f, 0.8f);
 
     private readonly Vector2 _anchor;
     private readonly WarpButton[] _categoryButtons;
-    private readonly WarpButton _saveButton;
-    private readonly WarpButton _doneButton;
     private readonly MenuLabel _categoryLabel;
     private readonly MenuLabel _hoverLabel;
+    private readonly string _prompt;
+    private readonly (WarpButton Button, string Key)[] _hovers;
+    private string _hoverKey;
     private readonly HorizontalSlider _hueSlider;
     private readonly HorizontalSlider _satSlider;
     private readonly HorizontalSlider _litSlider;
@@ -36,6 +33,7 @@ internal sealed class ColorEditor : RectangularMenuObject, Slider.ISliderOwner
     private Grouping _category;
     private string _region;
     private int _selected = -1;
+    private string _selectedName = "";
     private Hsl _current = new(0.2f, 1f, 0.5f);
 
     public ColorEditor(Menu.Menu menu, MenuObject owner, Grouping start) : base(menu, owner, Vector2.zero, Vector2.zero)
@@ -43,13 +41,13 @@ internal sealed class ColorEditor : RectangularMenuObject, Slider.ISliderOwner
         _anchor = new Vector2(160f, menu.manager.rainWorld.screenSize.y - 350f);
         _region = WarpState.SelectedRegion;
 
-        _saveButton = AddButton("SAVE", Save, new Vector2(_anchor.x + 20f + 95f, _anchor.y - 20f), new Color(0.4f, 1f, 0.4f));
-        _doneButton = AddButton("DONE", Done, new Vector2(_saveButton.pos.x + 95f, _anchor.y - 20f), _chosen);
+        WarpButton saveButton = AddButton("SAVE", WarpSignals.EditorSave, new Vector2(_anchor.x + 20f + 95f, _anchor.y - 20f), new Color(0.4f, 1f, 0.4f));
+        WarpButton doneButton = AddButton("DONE", WarpSignals.EditorDone, new Vector2(saveButton.pos.x + 95f, _anchor.y - 20f), _chosen);
 
         _categoryButtons =
         [
-            .. new[] { "TYPE", "SIZE", "SUB" }
-                .Select((name, i) => AddButton(name, CategoryPrefix + name,
+            .. Groupings.All
+                .Select((grouping, i) => AddButton(grouping.Code(), WarpSignals.ForCategory(grouping),
                     new Vector2(_anchor.x + 20f + 95f * i, _anchor.y + 200f), _chosen))
         ];
 
@@ -59,12 +57,23 @@ internal sealed class ColorEditor : RectangularMenuObject, Slider.ISliderOwner
             + Translator.Translate("Adjust global room Type and Size button colors") + Environment.NewLine
             + Translator.Translate("and individual subregion colors per region"),
             new Vector2(middle, _anchor.y + 265f), Vector2.zero, false));
-        _categoryLabel = AddLabel(Translator.Translate("Select a button above to configure colors"), middle, _anchor.y + 147f);
+        _prompt = Translator.Translate("Select a button above to configure colors");
+        _categoryLabel = AddLabel(_prompt, middle, _anchor.y + 147f);
         _hoverLabel = AddLabel("", middle, _anchor.y - 45f);
 
         _hueSlider = AddSlider("HUE", 100f);
         _satSlider = AddSlider("SAT", 60f);
         _litSlider = AddSlider("LIT", 20f);
+
+        // What the pointer can be over, and the text for each, as translation keys
+        _hovers =
+        [
+            (_categoryButtons[0], "Configure button colors when viewing by room type"),
+            (_categoryButtons[1], "Configure button colors when viewing by room size"),
+            (_categoryButtons[2], "Configure button colors when viewing by subregion"),
+            (saveButton, "Save the configured colors to a file"),
+            (doneButton, "Return to the main Warp menu")
+        ];
 
         SetCategory(start);
     }
@@ -102,24 +111,24 @@ internal sealed class ColorEditor : RectangularMenuObject, Slider.ISliderOwner
     private void SetCategory(Grouping category)
     {
         _category = category;
-        _selected = -1;
+        Select(-1);
         RebuildSwatches();
     }
 
     /// <summary>One small button for each color in the category, in that color.</summary>
     private void RebuildSwatches()
     {
-        foreach (WarpButton swatch in _swatches)
-        {
-            swatch.RemoveSprites();
-            RemoveSubObject(swatch);
-        }
+        this.RemoveAll(_swatches);
         _swatches.Clear();
 
+        if (_category == Grouping.Subregion)
+        {
+            EnsureSubregionColors();
+        }
         int count = ColorsInCategory;
         for (int i = 0; i < count; i++)
         {
-            var swatch = new WarpButton(menu, this, (i + 1).ToString(), ColorPrefix + i,
+            var swatch = new WarpButton(menu, this, (i + 1).ToString(), WarpSignals.ForSwatch(i),
                 new Vector2(_categoryButtons[0].pos.x + 3f + 30f * i, _categoryButtons[0].pos.y - 35f), new Vector2(25f, 25f),
                 UiColors.ToColor(ColorAt(i)));
             _swatches.Add(swatch);
@@ -127,22 +136,22 @@ internal sealed class ColorEditor : RectangularMenuObject, Slider.ISliderOwner
         }
     }
 
-    private int ColorsInCategory
+    /// <summary> How many swatches the current category has. </summary>
+    private int ColorsInCategory => _category switch
     {
-        get
-        {
-            switch (_category)
-            {
-                case Grouping.Type:
-                    return ColorPalette.TypeCount;
-                case Grouping.Size:
-                    return ColorPalette.SizeCount;
-                case Grouping.Subregion:
-                default:
-                    WarpState.UpdatePalette(p => p.WithSubregionCount(_region, RegionCatalog.Get(_region).SubregionNames.Length));
-                    return WarpState.Palette.Subregions[_region].Length;
-            }
-        }
+        Grouping.Type => ColorPalette.TypeCount,
+        Grouping.Size => ColorPalette.SizeCount,
+        _ => WarpState.Palette.Subregions[_region].Count
+    };
+
+    /// <summary>
+    /// Makes sure the palette has a color for each of the region's subregions, so there is a swatch for each. Called
+    /// when the category or the region changes, before the swatches are made.
+    /// </summary>
+    private void EnsureSubregionColors()
+    {
+        int count = RegionCatalog.Get(_region).SubregionNames.Length;
+        WarpState.UpdatePalette(palette => palette.WithSubregionCount(_region, count));
     }
 
     /// <summary> The palette's color for a swatch of the current category. </summary>
@@ -151,7 +160,7 @@ internal sealed class ColorEditor : RectangularMenuObject, Slider.ISliderOwner
         ColorPalette palette = WarpState.Palette;
         return _category switch
         {
-            Grouping.Type => palette.Type(index),
+            Grouping.Type => palette.Type((RoomType)index),
             Grouping.Size => palette.Sizes[index],
             _ => palette.Subregion(_region, index)
         };
@@ -164,7 +173,7 @@ internal sealed class ColorEditor : RectangularMenuObject, Slider.ISliderOwner
         {
             return _category switch
             {
-                Grouping.Type => palette.WithType(index, color),
+                Grouping.Type => palette.WithType((RoomType)index, color),
                 Grouping.Size => palette.WithSize(index, color),
                 _ => palette.WithSubregion(_region, index, color)
             };
@@ -181,7 +190,7 @@ internal sealed class ColorEditor : RectangularMenuObject, Slider.ISliderOwner
         }
         // The region was changed from the list while the editor was open
         _region = WarpState.SelectedRegion;
-        _selected = -1;
+        Select(-1);
         RebuildSwatches();
     }
 
@@ -192,33 +201,36 @@ internal sealed class ColorEditor : RectangularMenuObject, Slider.ISliderOwner
     /// <param name="message"></param>
     public override void Singal(MenuObject sender, string message)
     {
-        base.Singal(sender, message);
         switch (message)
         {
-            case Done:
+            case WarpSignals.EditorDone:
                 Closed?.Invoke();
-                return;
-            case Save:
+                break;
+            case WarpSignals.EditorSave:
                 menu.PlaySound(SoundID.MENU_Player_Join_Game);
                 WarpState.SavePalette();
-                return;
-        }
-        if (message.StartsWith(CategoryPrefix))
-        {
-            int category = Array.IndexOf(["TYPE", "SIZE", "SUB"], message.Substring(CategoryPrefix.Length));
-            if (category < 0)
+                break;
+            default:
             {
-                return;
-            }
+                if (WarpSignals.CategoryOf(message) is { } category)
+                {
+                    menu.PlaySound(SoundID.MENU_Add_Level);
+                    SetCategory(category);
+                }
+                else if (WarpSignals.SwatchOf(message) is { } index)
+                {
+                    menu.PlaySound(SoundID.MENU_Add_Level);
+                    Select(index);
+                    _current = ColorAt(index);
+                }
+                else
+                {
+                    // Not ours, so it goes on up; the editor's own messages stop here
+                    base.Singal(sender, message);
+                }
 
-            menu.PlaySound(SoundID.MENU_Add_Level);
-            SetCategory((Grouping)category);
-        }
-        else if (message.StartsWith(ColorPrefix) && int.TryParse(message.Substring(ColorPrefix.Length), out int index))
-        {
-            menu.PlaySound(SoundID.MENU_Add_Level);
-            _selected = index;
-            _current = ColorAt(index);
+                break;
+            }
         }
     }
 
@@ -236,43 +248,38 @@ internal sealed class ColorEditor : RectangularMenuObject, Slider.ISliderOwner
         {
             _swatches[i].Tint = UiColors.ToColor(ColorAt(i));
         }
-        _hoverLabel.label.text = HoverText();
+        ShowHoverText();
         UpdateCategoryLabel();
     }
 
-    /// <summary> The help text for the button the pointer is over, or nothing. </summary>
-    private string HoverText()
+    /// <summary> Shows the help text for the button the pointer is over, or nothing. Translated only when it changes. </summary>
+    private void ShowHoverText()
     {
-        if (_categoryButtons[0].IsMouseOverMe)
+        string key = _hovers.FirstOrDefault(hover => hover.Button.IsMouseOverMe).Key;
+        if (key == _hoverKey)
         {
-            return Translator.Translate("Configure button colors when viewing by room type");
+            return;
         }
-        if (_categoryButtons[1].IsMouseOverMe)
-        {
-            return Translator.Translate("Configure button colors when viewing by room size");
-        }
-        if (_categoryButtons[2].IsMouseOverMe)
-        {
-            return Translator.Translate("Configure button colors when viewing by subregion");
-        }
-        if (_saveButton.IsMouseOverMe)
-        {
-            return Translator.Translate("Save the configured colors to a file");
-        }
-        return _doneButton.IsMouseOverMe ? Translator.Translate("Return to the main Warp menu") : "";
+
+        _hoverKey = key;
+        _hoverLabel.label.text = key == null ? "" : Translator.Translate(key);
+    }
+
+    /// <summary>
+    /// Selects a swatch, or none with -1, and works out the text that names it once, so it is not translated on every
+    /// frame.
+    /// </summary>
+    private void Select(int index)
+    {
+        _selected = index;
+        _selectedName = index < 0 ? _prompt : SelectedName();
     }
 
     /// <summary> Shows the name of the selected color in its own color, or the instruction to select one. </summary>
     private void UpdateCategoryLabel()
     {
-        if (_selected < 0)
-        {
-            _categoryLabel.label.text = Translator.Translate("Select a button above to configure colors");
-            _categoryLabel.label.color = Color.white;
-            return;
-        }
-        _categoryLabel.label.text = SelectedName();
-        _categoryLabel.label.color = UiColors.ToColor(_current);
+        _categoryLabel.label.text = _selectedName;
+        _categoryLabel.label.color = _selected < 0 ? Color.white : UiColors.ToColor(_current);
     }
 
     /// <summary> The name of the selected color: a room type, a camera count or a subregion. </summary>
@@ -287,14 +294,9 @@ internal sealed class ColorEditor : RectangularMenuObject, Slider.ISliderOwner
                 return _selected < names.Length ? Translator.Translate(names[_selected]) : "";
             case Grouping.Type:
             default:
-                return Translator.Translate(_typeNames[Math.Min(_selected, _typeNames.Length - 1)]);
+                return Translator.Translate(RoomTypes.Of((RoomType)Math.Min(_selected, RoomTypes.All.Count - 1)).EditorName);
         }
     }
-
-    private static readonly string[] _typeNames =
-    [
-        "Room", "Gate", "Shelter", "Swarmroom", "Scavenger Trader", "Scavenger Outpost"
-    ];
 
     /// <summary>Sliders run from 0 to 1 while colors stop at 0.99, so the thumb sits at the color's share of 0.99.</summary>
     public float ValueOfSlider(Slider slider)

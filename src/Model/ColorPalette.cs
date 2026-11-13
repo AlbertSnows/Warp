@@ -21,16 +21,22 @@ internal sealed class ColorPalette
 
     private readonly Hsl[] _types;
     private readonly Hsl[] _sizes;
+    private readonly Dictionary<string, Hsl[]> _subregions;
 
+    /// <summary>
+    /// A palette of the colors given. It keeps copies, so the arrays passed in can be reused or changed afterwards
+    /// without reaching into the palette.
+    /// </summary>
     public ColorPalette(Hsl[] types, Hsl[] sizes, IReadOnlyDictionary<string, Hsl[]> subregions)
     {
         if (types.Length != TypeCount || sizes.Length != SizeCount)
         {
             throw new ArgumentException("A palette needs " + TypeCount + " type colors and " + SizeCount + " size colors.");
         }
-        _types = types;
-        _sizes = sizes;
-        Subregions = subregions;
+        _types = [.. types];
+        _sizes = [.. sizes];
+        _subregions = subregions.ToDictionary(pair => pair.Key, pair => (Hsl[])pair.Value.Clone());
+        Subregions = _subregions.ToDictionary(pair => pair.Key, IReadOnlyList<Hsl> (pair) => pair.Value);
     }
 
     /// <summary> The colors Warp starts with, before any file or edit. </summary>
@@ -72,7 +78,7 @@ internal sealed class ColorPalette
     }
 
     /// <summary> The color of a room type, given as the type's number. </summary>
-    public Hsl Type(int type) => _types[type];
+    public Hsl Type(RoomType type) => _types[(int)type];
 
     /// <summary>
     /// The color for a camera count. Counts past the last color share it, and counts under 1 are read as 1.
@@ -86,7 +92,7 @@ internal sealed class ColorPalette
     public IReadOnlyList<Hsl> Sizes => _sizes;
 
     /// <summary>The regions that have colors of their own, with those colors.</summary>
-    public IReadOnlyDictionary<string, Hsl[]> Subregions
+    public IReadOnlyDictionary<string, IReadOnlyList<Hsl>> Subregions
     {
         get;
     }
@@ -97,7 +103,7 @@ internal sealed class ColorPalette
     /// </summary>
     public Hsl Subregion(string region, int index)
     {
-        return Subregions.TryGetValue(region, out Hsl[]? colors) && index < colors.Length
+        return _subregions.TryGetValue(region, out Hsl[]? colors) && index < colors.Length
             ? colors[index]
             : DefaultSubregion(index);
     }
@@ -108,7 +114,7 @@ internal sealed class ColorPalette
     /// </summary>
     public ColorPalette WithSubregionCount(string region, int count)
     {
-        Subregions.TryGetValue(region, out Hsl[]? colors);
+        _subregions.TryGetValue(region, out Hsl[]? colors);
         if (colors != null && colors.Length >= count)
         {
             return this;
@@ -122,34 +128,34 @@ internal sealed class ColorPalette
     }
 
     /// <summary> The palette with one room type's color changed. </summary>
-    public ColorPalette WithType(int type, Hsl color) => new(Replace(_types, type, color), _sizes, Subregions);
+    public ColorPalette WithType(RoomType type, Hsl color) => new(Replace(_types, (int)type, color), _sizes, _subregions);
 
     /// <summary>
     /// The palette with one camera count's color changed. The index counts from 0, so 0 is one camera.
     /// </summary>
-    public ColorPalette WithSize(int index, Hsl color) => new(_types, Replace(_sizes, index, color), Subregions);
+    public ColorPalette WithSize(int index, Hsl color) => new(_types, Replace(_sizes, index, color), _subregions);
 
     /// <summary>The palette with one subregion's color changed, after growing the region's list to reach it.</summary>
     public ColorPalette WithSubregion(string region, int index, Hsl color)
     {
-        Hsl[] colors = WithSubregionCount(region, index + 1).Subregions[region];
+        Hsl[] colors = WithSubregionCount(region, index + 1)._subregions[region];
         return WithSubregions(region, Replace(colors, index, color));
     }
 
     /// <summary> The palette with a region's whole subregion list replaced. </summary>
     internal ColorPalette WithSubregions(string region, Hsl[] colors)
     {
-        var copy = new Dictionary<string, Hsl[]>(Subregions.ToDictionary(pair => pair.Key, pair => pair.Value))
+        var changed = new Dictionary<string, Hsl[]>(_subregions)
         {
             [region] = colors
         };
-        return new ColorPalette(_types, _sizes, copy);
+        return new ColorPalette(_types, _sizes, changed);
     }
 
     /// <summary>The color of a room's button when the buttons are colored by <paramref name="view"/>.</summary>
     public Hsl For(RoomInfo room, Grouping view, string region) => view switch
     {
-        Grouping.Type => Type((int)room.Type),
+        Grouping.Type => Type(room.Type),
         Grouping.Size => Size(room.Cameras),
         _ => Subregion(region, room.Subregion)
     };

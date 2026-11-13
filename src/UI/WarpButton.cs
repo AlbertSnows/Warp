@@ -71,19 +71,20 @@ internal sealed class WarpButton : ButtonTemplate
     public override void GrafUpdate(float timeStacker)
     {
         base.GrafUpdate(timeStacker);
-        Label.label.color = MyColor(timeStacker);
+        Color color = MyColor(timeStacker);
+        Label.label.color = color;
         float flash = Mathf.Lerp(buttonBehav.lastFlash, buttonBehav.flash, timeStacker);
         var fillColor = Color.Lerp(Menu.Menu.MenuRGB(Menu.Menu.MenuColors.Black), Menu.Menu.MenuRGB(Menu.Menu.MenuColors.White), flash);
-        for (int i = 0; i < 9; i++)
+        foreach (FSprite sprite in _fill.sprites)
         {
-            _fill.sprites[i].color = fillColor;
+            sprite.color = fillColor;
         }
         float pulse = 0.5f + 0.5f * Mathf.Sin(Mathf.Lerp(buttonBehav.lastSin, buttonBehav.sin, timeStacker) / 30f * Mathf.PI * 2f);
         pulse *= buttonBehav.sizeBump;
-        for (int i = 0; i < 8; i++)
+        foreach (FSprite sprite in _outline.sprites)
         {
-            _outline.sprites[i].color = MyColor(timeStacker);
-            _outline.sprites[i].alpha = pulse;
+            sprite.color = color;
+            sprite.alpha = pulse;
         }
     }
 

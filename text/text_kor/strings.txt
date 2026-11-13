@@ -1,0 +1,108 @@
+warp-name|워프 메뉴
+warp-description|일시정지 메뉴에서 다른 방이나 지역으로 빠른 이동을 하게 해주는 기능。
+
+//RoomPreview
+Shift + E  -  Export options|Shift + E - 설정 내보내기
+BORDERS: NONE|테두리: 없음
+BORDERS: ALL|테두리: 전부
+BORDERS: SHELTER|테두리: 피난처
+BORDERS: TYPES|테두리: 종류
+SCALE: X{0}|배율：X{0}
+EXPORT|내보내기
+EXPORT REGION|지역 내보내기
+OPEN FOLDER|폴더 열기
+
+Saved: {0}|저장 완료: {0}
+{0} x {1} pixels  -  {2}_preview.png|{0} x {1} 픽셀 - {2}_preview.png
+Finished exporting {0} rooms|방 {0}개 내보내기 완료
+
+//WarpColor
+Cameras: |카메라: 
+Room|방
+ROOM|방
+GATE|관문
+STATS|수치
+Gate|관문
+Shelter|피난처
+SHELTER|피난처
+Swarmroom|박쥐 방
+SwarmRoom|박쥐 방
+Scavenger Trader|스캐빈저 상인
+Scavenger Outpost|스캐빈저 
+ScavengerTrader|스캐빈저 상인
+ScavengerOutpost|스캐빈저 요금소
+ScavTrader|스캐빈저 상인
+ScavOutpost|스캐빈저 요금소
+ROOMS|방
+SCREENS|화면
+SCAVTRADER|스캐빈저 상인
+SWARMROOM|박쥐 방
+SCAVOUTPOST|스캐빈저 요금소
+OUTPOST|요금소
+SWARM|박쥐
+TRADER|상인
+CAMS |카메라 
+SUB |하위 
+HUE|색조
+SAT|채도
+LIT|밝기
+SAVE|저장
+DONE|완료
+TYPE|종류
+SIZE|크기
+SUB|하위
+
+COLOR CUSTOMISER|색상 사용자화
+Adjust global room Type and Size button colors|모든 방 종류와 크기 버튼 색상
+and individual subregion colors per region|및 각 지역 별 하위 지역 색상 변경
+
+Configure button colors when viewing by room type|방 종류별로 볼 때 버튼 색상 설정
+Configure button colors when viewing by room size|방 크기별로 볼 때 버튼 색상 설정
+Configure button colors when viewing by subregion|하위지역별로 볼 때 버튼 색상 설정
+Save the configured colors to a file|설정한 색상을 파일로 저장
+Return to the main Warp menu|주 워프 메뉴로 돌아가기
+Select a button above to configure colors|위에 있는 버튼을 선택해 색상 설정
+
+//WarpMenu
+Warp Menu|워프 메뉴
+SORT     #SEPARATOR#     VIEW|정렬     #SEPARATOR#     보기
+HIDE|숨기기
+WARP|워프
+NONE|없음
+ROOM TYPE|방 종류
+ROOM SIZE|방 크기
+SUBREGION|하위 지역
+LEFT|왼쪽
+RIGHT|오른쪽
+SWARM|박쥐 방
+Error|오류
+
+Left click on the preview to warp to that location  -  Right click to dismiss|프리뷰에 좌클릭해 그 위치로 워프  -  우클릭으로 취소
+Left click: Warp    -    Right click: Preview|좌클릭: 워프    -    우클릭: 미리보기
+Left click: Load Region    -    Shift click: Reload Region|좌클릭: 지역 불러오기    -    Shift 클릭: 지역 다시 불러오기
+Toggle the region list between list view and button view #SEPARATOR# Shift click to toggle alphabetical sorting|지역 목록을 목록 보기와 버튼 보기 중 전환 #SEPARATOR# Shift 클릭으로 가나다순 정렬 켜고 끄기
+Opens the colour customiser where you can change the colors for room types, sizes and subregions|방 종류, 크기, 하위지역 별 색상을 변경하는 색상 사용자화 메뉴 열기
+Toggle whether this region is favourited, putting it to the top of the list|이 지역을 좋아하는 지역으로 설정해서, 목록 위쪽으로 올리기
+Den Position: {0} #SEPARATOR# Hold shift + click a room to assign|둥지 위치: {0} #SEPARATOR# 방 Shift 클릭으로 지정
+Den Position: {0} #SEPARATOR# Press C to clear|둥지 위치: {0} #SEPARATOR# C를 눌러 모두 삭제
+
+//WarpStats
+ROOMS: |방: 
+SCREENS: |화면: 
+Gates: |관문: 
+Shelters: |피난처: 
+Swarm Rooms: |박쥐 방: 
+Scav Traders: |스캐빈저 상인: 
+Scav Tolls: |스캐빈저 요금소: 
+ Screen: | 화면: 
+
+//RegionSwitcher
+An error occurred while loading the new region, check your room connections|새 지역을 불러오는 데 오류가 발생했습니다. 방 연결을 확인하세요.
+An error occurred while loading the destination AbstractRoom|목적지 AbstractRoom을 불러오는 데 오류가 발생했습니다.
+An error occurred while realising the destination room|목적지 방을 불러오는 데 오류가 발생했습니다.
+An error occurred while loading rooms in the new region|새 지역의 방을 불러오는 데 오류가 발생했습니다.
+An error occurred while finding a node to place the player|플레이어를 배치할 노드를 찾는 데 오류가 발생했습니다.
+An error occurred while moving the player to the new region|플레이어를 새 지역으로 옮기는 데 오류가 발생했습니다.
+An error occurred while moving the player's items|플레이어의 물건을 옮기는 데 오류가 발생했습니다.
+An error occurred while moving the RoomCamera to the new room|새 방에 RoomCamera를 옮기는 데 오류가 발생했습니다.
+I have no idea how you got this error|이 오류가 어떻게 발생했는지 알 수 없습니다

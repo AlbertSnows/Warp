@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -8,8 +9,8 @@ namespace Warp.Switching;
 
 /// <summary>
 /// Moves the players, and what they carry, from the world they are in to a new world whose destination room is
-/// ready. It follows OverWorld.WorldLoaded in the game, which does the same when the players walk through a gate,
-/// with the room and position chosen by the player and not by a gate. The destination room has to be realized and
+/// ready. It follows upstream Warp's port of OverWorld.WorldLoaded, with the room and position chosen by the player and
+/// not by a gate. The destination room has to be realized and
 /// prepared already; see SwitchStepper.
 /// </summary>
 internal sealed class PlayerTransfer
@@ -24,6 +25,43 @@ internal sealed class PlayerTransfer
     /// Moves all the players, with what they carry, into the new world and room, then points the camera at it.
     /// </summary>
     public void Run(RainWorldGame game, World oldWorld, World newWorld, AbstractRoom newRoom, TileCoord? tile)
+    {
+        try
+        {
+            Transfer(game, oldWorld, newWorld, newRoom, tile);
+        }
+        catch
+        {
+            // The new world is already the active one and some players may have moved, and that is not undone: the
+            // players are partly in each world, so putting the old world back would be no better. The HUD is the one
+            // thing that can be put right, because without it the camera fails on every frame.
+            WarpLog.Error("The warp failed part way. Some players may have moved, so the session may be unstable.");
+            RebuildHudIfMissing(game);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// The HUD is thrown away before the players move and made again at the end. If a move fails in between there is
+    /// none, so make one, as well as it can be made. A failure to do that is logged and the first one is the one thrown.
+    /// </summary>
+    private static void RebuildHudIfMissing(RainWorldGame game)
+    {
+        try
+        {
+            RoomCamera camera = game.cameras[0];
+            if (camera.hud == null)
+            {
+                camera.FireUpSinglePlayerHUD(game.AlivePlayers[0].realizedCreature as Player);
+            }
+        }
+        catch (Exception error)
+        {
+            WarpLog.Exception("rebuilding the HUD after a failed warp", error);
+        }
+    }
+
+    private void Transfer(RainWorldGame game, World oldWorld, World newWorld, AbstractRoom newRoom, TileCoord? tile)
     {
         AdoptWorld(game, newWorld);
 
@@ -58,7 +96,8 @@ internal sealed class PlayerTransfer
 
     /// <summary>
     /// The first node of the room that is an exit with a connection, which is where creatures are put when no spot
-    /// was chosen. Node 0 if there is none.
+    /// was chosen. Node 0 if there is none. The position set from it is replaced when the player is moved, so it only
+    /// matters for what is carried along before that; kept as upstream Warp has it.
     /// </summary>
     private static int FindEntranceNode(AbstractRoom room)
     {
@@ -101,6 +140,7 @@ internal sealed class PlayerTransfer
         abstractPlayer.world = newWorld;
         abstractPlayer.pos.room = newRoom.index;
         abstractPlayer.pos.abstractNode = entranceNode;
+        // Overwritten by Move below, as upstream does it; this is the position the carried items copy first
         abstractPlayer.pos.x = tile?.X ?? 0;
         abstractPlayer.pos.y = tile?.Y ?? 0;
         if (first)
@@ -130,7 +170,7 @@ internal sealed class PlayerTransfer
 
         if (first)
         {
-            PlayerOps.RemoveDuplicates(
+            Lists.RemoveDuplicates(
                 newRoom.realizedRoom.updateList,
                 carried.Select(item => item.realizedObject).Where(item => item != null));
         }
@@ -166,7 +206,9 @@ internal sealed class PlayerTransfer
     }
 
     /// <summary>
-    /// A creature with AI has a path to a destination in the old world. Give it one in the new world, or none.
+    /// A creature with AI has a path to a destination in the old world; this gives it one in the new world, or none. A
+    /// slugcat has no AI, so this only does anything for a modded character that has some. Kept for them, as upstream
+    /// Warp has it.
     /// </summary>
     private static void ResetPathfinding(AbstractCreature creature)
     {
@@ -209,8 +251,8 @@ internal sealed class PlayerTransfer
     }
 
     /// <summary>
-    /// Starts the creature's AI again in the new world. An overseer that guides the player is retired, as the game
-    /// does when a world changes.
+    /// Starts the creature's AI again in the new world. An overseer that guides the player is retired, as upstream
+    /// Warp does.
     /// </summary>
     private static void RestartCreatureAi(RainWorldGame game, AbstractCreature creature, World newWorld, AbstractRoom newRoom)
     {
@@ -223,16 +265,24 @@ internal sealed class PlayerTransfer
         creature.abstractAI.RealAI.NewRoom(newRoom.realizedRoom);
         bool isGuide = creature.creatureTemplate.type == CreatureTemplate.Type.Overseer
                        && ((OverseerAbstractAI)creature.abstractAI).playerGuide;
-        if (isGuide)
+        if (!isGuide)
         {
-            _killPlayerGuideInNewWorld.Invoke(game.overWorld, [newWorld, creature]);
+            return;
         }
+        if (_killPlayerGuideInNewWorld == null)
+        {
+            // Looked up by name because the game keeps it private; a game update that renames it must not stop the warp
+            WarpLog.Error("The game has no OverWorld.KillPlayerGuideInNewWorld, so the player's guide overseer is kept");
+            return;
+        }
+        _killPlayerGuideInNewWorld.Invoke(game.overWorld, [newWorld, creature]);
     }
 
     /// <summary>Shortcut traffic that belongs to the old region cannot be carried on in the new one.</summary>
     private static void DropVesselsOutsideRegion(RainWorldGame game)
     {
         Region region = game.overWorld.activeWorld.region;
+        // Three lists of different vessel types, so one loop over them will not do
         game.shortcuts.transportVessels.RemoveAll(vessel => !region.IsRoomInRegion(vessel.room.index));
         game.shortcuts.betweenRoomsWaitingLobby.RemoveAll(vessel => !region.IsRoomInRegion(vessel.room.index));
         game.shortcuts.borderTravelVessels.RemoveAll(vessel => !region.IsRoomInRegion(vessel.room.index));

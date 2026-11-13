@@ -1,12 +1,16 @@
+using System;
 using Menu;
 using Warp.Game;
 using Warp.Switching;
 using Warp.UI;
+using Warp.Util;
 
 namespace Warp.Hooks;
 
 /// <summary>
-/// The hooks into the game. Each one is a thin wrapper that calls <see cref="PauseMenuGlue"/> or the warp driver.
+/// The hooks into the game. Each one is a thin wrapper that calls <see cref="PauseMenuGlue"/> or the warp driver. The
+/// Warp part of each hook is wrapped so that a fault in it is logged and the game's own behaviour carries on; the
+/// game's original method is never inside the wrapper.
 /// </summary>
 internal static class WarpHooks
 {
@@ -25,15 +29,36 @@ internal static class WarpHooks
     /// <summary> Prepares Warp before a pause menu is built and adds the Warp menu to it afterwards. </summary>
     private static void PauseMenuCtor(On.Menu.PauseMenu.orig_ctor orig, PauseMenu self, ProcessManager manager, RainWorldGame game)
     {
-        PauseMenuGlue.Prepare(game);
+        try
+        {
+            PauseMenuGlue.Prepare(game);
+        }
+        catch (Exception error)
+        {
+            Guard.Report("getting the pause menu ready", error);
+        }
         orig(self, manager, game);
-        PauseMenuGlue.Attach(game, self);
+        try
+        {
+            PauseMenuGlue.Attach(game, self);
+        }
+        catch (Exception error)
+        {
+            Guard.Report("adding the Warp menu to the pause menu", error);
+        }
     }
 
     /// <summary> Lets Warp see each pause menu signal before the game does. </summary>
     private static void PauseMenuSignal(On.Menu.PauseMenu.orig_Singal orig, PauseMenu self, MenuObject sender, string message)
     {
-        PauseMenuGlue.Signal(self, self.game, sender, message);
+        try
+        {
+            PauseMenuGlue.Signal(self, self.game, sender, message);
+        }
+        catch (Exception error)
+        {
+            Guard.Report("handling a pause menu signal", error);
+        }
         orig(self, sender, message);
     }
 
@@ -44,16 +69,34 @@ internal static class WarpHooks
         {
             orig(self);
         }
-        PauseMenuGlue.Update(self.game, self);
+        try
+        {
+            PauseMenuGlue.Update(self.game, self);
+        }
+        catch (Exception error)
+        {
+            Guard.Report("updating the pause menu", error);
+        }
     }
 
     /// <summary> Carries a pending warp on by one frame after the game's own world update. </summary>
     private static void OverWorldUpdate(On.OverWorld.orig_Update orig, OverWorld self)
     {
         orig(self);
-        if (PauseMenuGlue.Enabled(self.game))
+        try
         {
-            WarpDriver.Update(self);
+            if (PauseMenuGlue.Enabled(self.game))
+            {
+                WarpDriver.Update(self);
+            }
+        }
+        catch (Exception error)
+        {
+            // The driver handles the faults it expects. This is for one it does not, and ending the warp stops the
+            // same fault from coming back every frame
+            Guard.Report("carrying out a warp", error);
+            WarpDriver.Cancel();
+            WarpState.EndWarp();
         }
     }
 

@@ -14,8 +14,11 @@
     <!-- C# 12, for file-scoped namespaces, records and primary constructors. This only changes the syntax the compiler
          accepts, not the output. Types that net48 lacks and the new syntax needs are supplied by src/Util/IsExternalInit.cs. -->
     <LangVersion>12</LangVersion>
-    <!-- Properties/AssemblyInfo.cs already has the assembly's attributes -->
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <!-- The assembly's own attributes come from these. The version has to match PluginInfo.Version, which a test checks. -->
+    <Version>1.9.1</Version>
+    <Product>Warp For Meadow</Product>
+    <Authors>LeeMoriya, AJ_Snow</Authors>
+    <Copyright>Copyright © 2020 LeeMoriya. Changes © 2026 AJ_Snow</Copyright>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
 
@@ -87,9 +90,34 @@
     <None Remove="tests/**" />
   </ItemGroup>
 
-  <!-- Source files and Resources.resx are picked up automatically. The default colours are embedded as well. -->
+  <!-- Source files are picked up automatically. The default colours are built in, and read with EmbeddedText under the
+       name Warp.Resources.Colors.txt. -->
   <ItemGroup>
     <EmbeddedResource Include="Resources\Colors.txt" />
   </ItemGroup>
+
+  <!--
+    Stages the mod as the game and the Workshop expect it, in bin/package/warp-for-meadow:
+    modinfo.json (its version filled in from Version above), newest/plugins/Warp.dll, sprites and text. Run it with
+    dotnet build Warp.csproj -c Release -t:PackageMod. A thumbnail.png in package/ is included if there is one.
+    -->
+  <Target Name="PackageMod" DependsOnTargets="Build">
+    <PropertyGroup>
+      <PackageDir>$(MSBuildProjectDirectory)/bin/package/warp-for-meadow</PackageDir>
+      <ModInfoText>$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)/package/modinfo.json').Replace('$VERSION$', '$(Version)'))</ModInfoText>
+    </PropertyGroup>
+    <ItemGroup>
+      <PackageSprite Include="package/sprites/**/*" />
+      <PackageText Include="text/**/*" />
+      <PackageThumbnail Include="package/thumbnail.png" Condition="Exists('package/thumbnail.png')" />
+    </ItemGroup>
+    <RemoveDir Directories="$(PackageDir)" />
+    <Copy SourceFiles="$(OutputPath)Warp.dll" DestinationFolder="$(PackageDir)/newest/plugins" />
+    <Copy SourceFiles="@(PackageSprite)" DestinationFiles="@(PackageSprite->'$(PackageDir)/sprites/%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(PackageText)" DestinationFiles="@(PackageText->'$(PackageDir)/text/%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(PackageThumbnail)" DestinationFolder="$(PackageDir)" />
+    <WriteLinesToFile File="$(PackageDir)/modinfo.json" Lines="$(ModInfoText)" Overwrite="true" />
+    <Message Importance="high" Text="Mod staged in $(PackageDir)" />
+  </Target>
 
 </Project>

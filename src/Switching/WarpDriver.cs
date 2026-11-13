@@ -1,5 +1,6 @@
 using System;
 using Menu;
+using UnityEngine;
 using Warp.Game;
 using Warp.Model;
 using Warp.Util;
@@ -16,6 +17,7 @@ internal static class WarpDriver
 {
     private static readonly RoomWarp _roomWarp = new();
     private static SwitchStepper _regionSwitch;
+    private static float? _firstSeen;
 
     /// <summary> Does one frame of work for the pending warp, if there is one. </summary>
     public static void Update(OverWorld overWorld)
@@ -27,32 +29,68 @@ internal static class WarpDriver
             Cancel();
             return;
         }
+        float now = Time.realtimeSinceStartup;
+        _firstSeen ??= now;
         if (_regionSwitch != null)
         {
             StepRegionSwitch(overWorld);
-            return;
         }
-        Player lead = overWorld.game.AlivePlayers.Count > 0 ? overWorld.game.AlivePlayers[0].realizedCreature as Player : null;
-        if (lead == null || lead.inShortcut)
+        else if (request.Region == overWorld.activeWorld.region.name)
         {
-            return;
+            UpdateRoomWarp(overWorld, request);
         }
-        if (request.Region != overWorld.activeWorld.region.name)
+        else
         {
-            BeginRegionSwitch(overWorld, request);
-            return;
+            UpdateStart(overWorld, request, _firstSeen.Value, now);
         }
+    }
+
+    /// <summary>
+    /// A warp inside the region. It is asked every frame, whether or not the players can move, because the policy it
+    /// runs decides when to wait, to give up and to drop the request.
+    /// </summary>
+    private static void UpdateRoomWarp(OverWorld overWorld, WarpRequest request)
+    {
         try
         {
-            if (_roomWarp.Update(overWorld, request, lead))
+            if (_roomWarp.Update(overWorld, request))
             {
-                WarpState.EndWarp();
+                End();
             }
         }
         catch (Exception error)
         {
             _roomWarp.Finish();
             Fail(overWorld, error, WarpStageText.ErrorText(_roomWarp.Stage));
+        }
+    }
+
+    /// <summary>
+    /// A warp to another region that has not started. It waits until the players can move, and gives up after
+    /// <see cref="RoomWarpPolicy.DefaultTimeoutSeconds"/> or when none is alive, as decided by
+    /// <see cref="WarpStartPolicy"/>.
+    /// </summary>
+    private static void UpdateStart(OverWorld overWorld, WarpRequest request, float firstSeen, float now)
+    {
+        RainWorldGame game = overWorld.game;
+        var facts = new WarpStartFacts(game.AlivePlayers.Count > 0, PlayerOps.PlayersCanMove(game), now);
+        switch (WarpStartPolicy.Next(firstSeen, facts, RoomWarpPolicy.DefaultTimeoutSeconds))
+        {
+            case WarpStartAction.Begin:
+                BeginRegionSwitch(overWorld, request);
+                break;
+            case WarpStartAction.Drop:
+                End();
+                break;
+            case WarpStartAction.TimedOut:
+                Fail(overWorld, new TimeoutException("The players could not move within "
+                                                     + RoomWarpPolicy.DefaultTimeoutSeconds + " seconds."),
+                    WarpStageText.ErrorText(WarpStage.MovePlayer));
+                break;
+            case WarpStartAction.Wait:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
     }
 
@@ -64,13 +102,14 @@ internal static class WarpDriver
     {
         _regionSwitch?.Cancel();
         _regionSwitch = null;
+        _firstSeen = null;
         _roomWarp.Finish();
     }
 
     /// <summary>
     /// Starts a warp to another region. Having no player to move is not an error; there is simply nothing to do.
     /// </summary>
-    private static void BeginRegionSwitch(OverWorld overWorld, Model.WarpRequest request)
+    private static void BeginRegionSwitch(OverWorld overWorld, WarpRequest request)
     {
         WarpState.ClearError();
         _regionSwitch = new SwitchStepper();
@@ -117,6 +156,7 @@ internal static class WarpDriver
     private static void End()
     {
         _regionSwitch = null;
+        _firstSeen = null;
         WarpState.EndWarp();
     }
 
@@ -126,8 +166,9 @@ internal static class WarpDriver
         WarpLog.Exception("warping", error);
         WarpLog.Error(text);
         WarpState.ReportError(text);
+        // End first: building the pause menu runs the hook that prepares Warp, which also ends any warp
+        End();
         // A new pause menu is the one that shows the error
         overWorld.game.pauseMenu = new PauseMenu(overWorld.game.manager, overWorld.game);
-        End();
     }
 }

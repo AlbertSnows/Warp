@@ -12,17 +12,21 @@ namespace Warp.Switching;
 internal sealed class RoomWarp
 {
     private AbstractRoom _room;
+    private float? _startTime;
 
     /// <summary>The step the warp is at, so a failure can say what it was doing.</summary>
     public WarpStage Stage { get; private set; } = WarpStage.AbstractRoom;
 
     /// <summary>
     /// Does one frame's work towards the request. Returns true once the players are in the room and the camera has
-    /// followed, and false while it is still waiting. Throws if the room does not exist.
+    /// followed (or the warp no longer applies), and false while it is still waiting. Throws if the room does not
+    /// exist, or if it takes longer than <see cref="RoomWarpPolicy.DefaultTimeoutSeconds"/>.
     /// </summary>
-    public bool Update(OverWorld overWorld, WarpRequest request, Player lead)
+    public bool Update(OverWorld overWorld, WarpRequest request)
     {
         RainWorldGame game = overWorld.game;
+        float now = Time.realtimeSinceStartup;
+        _startTime ??= now;
         Stage = WarpStage.AbstractRoom;
         if (_room == null || _room.name != request.Room)
         {
@@ -36,24 +40,42 @@ internal sealed class RoomWarp
         }
 
         Room realized = _room.realizedRoom;
-        if (realized != null && realized.ReadyForPlayer)
+        var facts = new RoomWarpFacts(
+            StillApplies: game.AlivePlayers.Count > 0,
+            RoomReady: realized is { ReadyForPlayer: true },
+            PlayersCanMove: PlayerOps.PlayersCanMove(game),
+            Now: now);
+        switch (RoomWarpPolicy.Next(_startTime.Value, facts, RoomWarpPolicy.DefaultTimeoutSeconds))
         {
-            Stage = WarpStage.MovePlayer;
-            if (lead.room != realized)
-            {
-                MovePlayers(game, lead, realized, request.Tile);
-            }
-            else if (request.Tile is { } tile)
-            {
-                // Already in the room; the player only wanted a spot in it
-                PutBodiesAt(game, realized, tile);
+            case RoomWarpAction.Drop:
                 Finish();
                 return true;
-            }
+            case RoomWarpAction.TimedOut:
+                Stage = facts.RoomReady ? WarpStage.MovePlayer : WarpStage.RealiseRoom;
+                Finish();
+                throw new TimeoutException(
+                    "The warp did not finish within " + RoomWarpPolicy.DefaultTimeoutSeconds + " seconds.");
+            case RoomWarpAction.Wait:
+                return false;
+            case RoomWarpAction.Move:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
-        if (realized == null)
+
+        Stage = WarpStage.MovePlayer;
+        // The policy said Move, so every alive player has a body that is not in a shortcut
+        var lead = (Player)game.AlivePlayers[0].realizedCreature;
+        if (lead.room != realized)
         {
-            return false;
+            MovePlayers(game, lead, realized, request.Tile);
+        }
+        else if (request.Tile is { } tile)
+        {
+            // Already in the room; the player only wanted a spot in it
+            PutBodiesAt(game, realized, tile);
+            Finish();
+            return true;
         }
 
         BringBackSpears(game, realized);
@@ -67,8 +89,12 @@ internal sealed class RoomWarp
         return true;
     }
 
-    /// <summary>Forgets the room, so the next warp looks its destination up afresh.</summary>
-    public void Finish() => _room = null;
+    /// <summary>Forgets the room and the start time, so the next warp starts afresh.</summary>
+    public void Finish()
+    {
+        _room = null;
+        _startTime = null;
+    }
 
     /// <summary>
     /// Moves every player into the room, at the chosen tile if there is one and at the room's first entrance if

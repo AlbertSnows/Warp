@@ -18,6 +18,15 @@ internal sealed record Preferences(
     bool Alphabetical = true)
 {
     /// <summary>
+    /// The preferences after the player sorts by a grouping. Sorting by something also colors by it, because that is
+    /// what makes the sort visible.
+    /// </summary>
+    public Preferences WithSort(Grouping grouping) => this with { Sort = grouping, View = grouping };
+
+    /// <summary> The preferences after the player colors by a grouping. The sort is left as it was. </summary>
+    public Preferences WithView(Grouping grouping) => this with { View = grouping };
+
+    /// <summary>
     /// The settings file's text: one digit for each setting, in the order of the fields above, with the groupings as
     /// 0 (type), 1 (size) or 2 (subregion). Example: "100011".
     /// </summary>
@@ -74,10 +83,10 @@ internal sealed record Preferences(
 /// <summary>
 /// The regions the player has marked as favourites. The file holds the names separated by colons.
 /// </summary>
-internal static class Favourites
+internal static class FavouriteSet
 {
     /// <summary> The text of the favourites file: the regions joined with colons. </summary>
-    public static string Serialize(IEnumerable<string> regions) => string.Join(":", regions);
+    public static string Serialize(IEnumerable<string> regions) => string.Join(":", regions.OrderBy(name => name, StringComparer.Ordinal));
 
     /// <summary> The regions named in a favourites file. Blank names are ignored. </summary>
     public static HashSet<string> Parse(string text)

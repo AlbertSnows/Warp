@@ -56,12 +56,12 @@ internal static class WarpFiles
     public static HashSet<string> LoadFavourites()
     {
         string text = TryRead(FavouritesPath);
-        return text == null ? [] : Favourites.Parse(text);
+        return text == null ? [] : FavouriteSet.Parse(text);
     }
 
     /// <summary> Writes the favourite regions to Favourites.txt. </summary>
     public static void SaveFavourites(IEnumerable<string> favourites)
-        => TryWrite(FavouritesPath, Favourites.Serialize(favourites));
+        => TryWrite(FavouritesPath, FavouriteSet.Serialize(favourites));
 
     /// <summary>
     /// The saved colors. With no file yet, the colors that come with Warp are written out and used. A line that
@@ -70,15 +70,12 @@ internal static class WarpFiles
     public static ColorPalette LoadPalette()
     {
         string text = TryRead(ColorsPath);
-        if (text != null)
+        if (text == null)
         {
-            return ColorFile.Parse(text.Split('\n'), ColorPalette.Default,
-                line => WarpLog.Error("Could not read a color from the colors file: " + line));
+            text = EmbeddedText.Read("Warp.Resources.Colors.txt");
+            TryWrite(ColorsPath, text);
+            WarpLog.Info("Wrote the default colors");
         }
-
-        text = Resources.Colors;
-        TryWrite(ColorsPath, text);
-        WarpLog.Info("Wrote the default colors");
         return ColorFile.Parse(text.Split('\n'), ColorPalette.Default,
             line => WarpLog.Error("Could not read a color from the colors file: " + line));
     }
@@ -90,12 +87,8 @@ internal static class WarpFiles
         WarpLog.Info("Custom colors saved");
     }
 
-    /// <summary>Writes the room list text where F5 and F6 put it, and returns the path.</summary>
-    public static string WriteRoomList(string text)
-    {
-        TryWrite(RoomListPath, text);
-        return RoomListPath;
-    }
+    /// <summary> Writes the room list text where F5 and F6 put it. Returns the path, or null if it could not be written. </summary>
+    public static string WriteRoomList(string text) => TryWrite(RoomListPath, text) ? RoomListPath : null;
 
     /// <summary>The lines of a file, or null if it is missing or cannot be read.</summary>
     public static string[] TryReadLines(string path)
@@ -126,10 +119,10 @@ internal static class WarpFiles
     }
 
     /// <summary>
-    /// Writes a text file, making its folder first. A failure is logged and not thrown, so a read-only folder
-    /// cannot break the menu.
+    /// Writes a text file, making its folder first. Returns whether it worked. A failure is logged and not thrown, so a
+    /// read-only folder cannot break the menu.
     /// </summary>
-    private static void TryWrite(string path, string text)
+    private static bool TryWrite(string path, string text)
     {
         try
         {
@@ -139,10 +132,12 @@ internal static class WarpFiles
                 Directory.CreateDirectory(folder);
             }
             File.WriteAllText(path, text);
+            return true;
         }
         catch (Exception error)
         {
             WarpLog.Exception("writing " + path, error);
+            return false;
         }
     }
 }

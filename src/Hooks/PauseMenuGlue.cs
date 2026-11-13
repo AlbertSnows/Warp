@@ -1,6 +1,7 @@
 using Menu;
 using UnityEngine;
 using Warp.Game;
+using Warp.Model;
 using Warp.UI;
 using Warp.Util;
 
@@ -12,8 +13,6 @@ namespace Warp.Hooks;
 /// </summary>
 internal static class PauseMenuGlue
 {
-    private const string ToggleSignal = "toggleWarp";
-    private const float HiddenY = -2000f;
 
     /// <summary>Warp works in story sessions, and not in safari mode.</summary>
     public static bool Enabled(RainWorldGame game) => game.IsStorySession && (!ModManager.MSC || !game.rainWorld.safariMode);
@@ -25,35 +24,53 @@ internal static class PauseMenuGlue
         {
             return;
         }
-        WarpState.Load();
+        WarpState.EnsureLoaded();
         WarpState.EndWarp();
         Switching.WarpDriver.Cancel();
+        RoomListScan.Reset();
+    }
+
+    /// <summary>
+    /// Whether the Warp menu can be added: the first player has a body and is not in a shortcut. Checked before the
+    /// game's controls picture is moved, so a pause menu with no Warp menu keeps its controls picture.
+    /// </summary>
+    private static bool CanAttach(RainWorldGame game)
+    {
+        AbstractCreature player = game.Players.Count > 0 ? game.Players[0] : null;
+        return Enabled(game) && player?.realizedCreature is { inShortcut: false };
     }
 
     /// <summary>Adds the Warp menu and its toggle button to a pause menu that was just made.</summary>
     public static void Attach(RainWorldGame game, PauseMenu menu)
     {
-        if (!Enabled(game))
+        if (!CanAttach(game))
         {
             return;
         }
         bool show = WarpState.Preferences.ShowMenu;
+        Page page = menu.pages[0];
+        // Built before anything of the game's is moved, so a fault in building it leaves the pause menu as it was
+        WarpContainer container = null;
+        WarpButton toggle;
+        try
+        {
+            container = new WarpContainer(menu, page, page.pos + new Vector2(20f, show ? 0f : UiLayout.OffScreenY));
+            toggle = new WarpButton(menu, page, "", WarpSignals.Toggle,
+                new Vector2(41f, game.rainWorld.options.ScreenSize.y - 72f), new Vector2(45f, 20f), Color.red);
+        }
+        catch
+        {
+            // A container that threw has cleaned up after itself; one that was built needs its sprites taken back
+            container?.RemoveSprites();
+            throw;
+        }
+        ShowToggleState(toggle, show);
+        page.subObjects.Add(container);
+        page.subObjects.Add(toggle);
         if (show && menu.controlMap != null)
         {
-            SetControlMapY(menu, HiddenY, HiddenY);
+            SetControlMapY(menu, UiLayout.OffScreenY, UiLayout.OffScreenY);
         }
-        AbstractCreature player = game.Players.Count > 0 ? game.Players[0] : null;
-        if (player?.realizedCreature == null || player.realizedCreature.inShortcut)
-        {
-            return;
-        }
-        Page page = menu.pages[0];
-        page.subObjects.Add(new WarpContainer(menu, page, page.pos + new Vector2(20f, show ? 0f : HiddenY)));
-
-        var toggle = new WarpButton(menu, page, "", ToggleSignal,
-            new Vector2(41f, game.rainWorld.options.ScreenSize.y - 72f), new Vector2(45f, 20f), Color.red);
-        ShowToggleState(toggle, show);
-        page.subObjects.Add(toggle);
     }
 
     /// <summary>Runs every frame the pause menu is open.</summary>
@@ -82,11 +99,16 @@ internal static class PauseMenuGlue
         {
             return;
         }
-        if (message == ToggleSignal)
+        // Only Warp's own buttons count, whatever another mod sends
+        if (sender is not WarpButton button)
         {
-            ToggleVisibility(menu, (WarpButton)sender);
+            return;
         }
-        else if (RoomGrid.RoomOfSignal(message) is { } room)
+        if (message == WarpSignals.Toggle)
+        {
+            ToggleVisibility(menu, button);
+        }
+        else if (WarpSignals.RoomOf(message) is { } room)
         {
             ChooseRoom(menu, room);
         }
@@ -103,7 +125,7 @@ internal static class PauseMenuGlue
             menu.PlaySound(SoundID.MENU_Player_Join_Game);
             return;
         }
-        WarpState.RequestWarp(new Model.WarpRequest(WarpState.SelectedRegion, room));
+        WarpState.RequestWarp(new WarpRequest(WarpState.SelectedRegion, room));
         WarpLog.Info("Room warp initiated for: " + room);
         menu.Singal(null, "CONTINUE");
     }
@@ -123,7 +145,7 @@ internal static class PauseMenuGlue
         }
 
         // The game's own controls picture takes the Warp menu's place while it is hidden
-        float y = show ? HiddenY : 380f;
+        float y = show ? UiLayout.OffScreenY : 380f;
         SetControlMapY(menu, y, y);
     }
 

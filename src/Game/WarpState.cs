@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Warp.Model;
-using Toggling = Warp.Model.Favourites;
 using Warp.Util;
 
 namespace Warp.Game;
@@ -19,7 +18,8 @@ internal static class WarpState
     private static readonly Atom<WarpRequest> _pendingAtom = new(null);
     private static readonly Atom<string> _denAtom = new(null);
     private static readonly Atom<string> _regionAtom = new("");
-    private static readonly Atom<string> _errorAtom = new("");
+    private static readonly Atom<string> _errorAtom = new(null);
+    private static readonly Atom<bool> _loaded = new(false);
 
     /// <summary> The player's saved choices. Change them with <see cref="UpdatePreferences"/>. </summary>
     public static Preferences Preferences => _preferencesAtom.Deref();
@@ -39,11 +39,23 @@ internal static class WarpState
     /// <summary>The region whose rooms the menu is showing, which is where a room button warps to.</summary>
     public static string SelectedRegion => _regionAtom.Deref();
 
-    /// <summary>Text for the menu to show after a failed warp, or an empty string.</summary>
+    /// <summary>Text for the menu to show after a failed warp, or null.</summary>
     public static string Error => _errorAtom.Deref();
 
-    /// <summary>Reads preferences, favourites and colors from disk. Call it when the pause menu opens.</summary>
-    public static void Load()
+    /// <summary>
+    /// Reads preferences, favourites and colors from disk the first time it is called, and does nothing after that.
+    /// The values in memory are the ones that count from then on, and every change to them is written to disk by the
+    /// setter, so reading again would only throw away colors that were changed and not yet saved.
+    /// </summary>
+    public static void EnsureLoaded()
+    {
+        if (!_loaded.SwapVals(_ => true).Old)
+        {
+            Load();
+        }
+    }
+
+    private static void Load()
     {
         _preferencesAtom.Reset(WarpFiles.LoadPreferences());
         _favouritesAtom.Reset(WarpFiles.LoadFavourites());
@@ -66,7 +78,7 @@ internal static class WarpState
     /// <summary>Adds the region to the favourites or removes it. Returns true if it is a favourite afterwards.</summary>
     public static bool ToggleFavourite(string region)
     {
-        HashSet<string> favourites = _favouritesAtom.Swap(current => Toggling.Toggle(current, region));
+        HashSet<string> favourites = _favouritesAtom.Swap(current => FavouriteSet.Toggle(current, region));
         WarpFiles.SaveFavourites(favourites);
         return favourites.Contains(region);
     }
@@ -96,5 +108,5 @@ internal static class WarpState
     public static void ReportError(string text) => _errorAtom.Reset(text);
 
     /// <summary> Forgets the error text once it has been shown. </summary>
-    public static void ClearError() => _errorAtom.Reset("");
+    public static void ClearError() => _errorAtom.Reset(null);
 }

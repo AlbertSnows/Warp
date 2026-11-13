@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Warp.Util;
@@ -13,6 +14,8 @@ internal static class AtomTests
         Group(nameof(BasicTests), BasicTests);
         Group(nameof(RetryTests), RetryTests);
         Group(nameof(ThreadTests), ThreadTests);
+        Group(nameof(OnceTests), OnceTests);
+        Group(nameof(ListTests), ListTests);
     }
 
     private static void BasicTests()
@@ -84,5 +87,30 @@ internal static class AtomTests
             thread.Join();
         }
         CheckEqual("no update is lost when many threads change one atom", threadCount * perThread, atom.Deref());
+    }
+
+    private static void OnceTests()
+    {
+        var once = new Once();
+        CheckEqual("the first time a key is seen", true, once.First("opening the menu"));
+        CheckEqual("not the second time", false, once.First("opening the menu"));
+        CheckEqual("another key is new", true, once.First("updating the menu"));
+        CheckEqual("and the first is still seen", false, once.First("opening the menu"));
+        CheckEqual("a different Once has its own memory", true, new Once().First("opening the menu"));
+    }
+
+    private static void ListTests()
+    {
+        List<string> list = ["a", "b", "a", "c", "b", "a"];
+        Lists.RemoveDuplicates(list, ["a"]);
+        CheckSequence("only the later copies of the named item go", ["a", "b", "c", "b"], list);
+        Lists.RemoveDuplicates(list, ["b", "z"]);
+        CheckSequence("another item, and one that is not there", ["a", "b", "c"], list);
+
+        List<int> numbers = [1, 2, 3, 2, 3];
+        Lists.RemoveDuplicates(numbers, [2, 3]);
+        CheckSequence("items after a duplicate are not removed with it", [1, 2, 3], numbers);
+        Lists.RemoveDuplicates(numbers, []);
+        CheckSequence("naming nothing changes nothing", [1, 2, 3], numbers);
     }
 }

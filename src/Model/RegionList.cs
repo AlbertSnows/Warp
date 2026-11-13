@@ -19,7 +19,8 @@ internal static class RegionList
     /// <summary>
     /// The dropdown's entries, one for each region id (the first one wins if an id is listed twice). The display text
     /// is the region's full name, or the id when the game has no name for it. A favourite is marked with "> " in
-    /// front, which also sorts it to the top when the list is alphabetical.
+    /// front, and favourites come first. The rest follow in alphabetical order of the displayed name when asked, which
+    /// uses the player's language because these are translated names, and as the game lists them otherwise.
     /// </summary>
     public static List<RegionEntry> DropdownEntries(
         IEnumerable<string> regionIds,
@@ -30,9 +31,11 @@ internal static class RegionList
         IEnumerable<RegionEntry> entries = regionIds
             .Distinct()
             .Select(id => new RegionEntry(id, DisplayName(id, fullName, favourites)));
+        // OrderBy keeps the order it was given among equal keys, which is how the game's own order survives
+        IOrderedEnumerable<RegionEntry> favouritesFirst = entries.OrderBy(entry => favourites.Contains(entry.Id) ? 0 : 1);
         return alphabetical
-            ? [.. entries.OrderBy(entry => entry.Display, StringComparer.CurrentCulture)]
-            : [.. entries];
+            ? [.. favouritesFirst.ThenBy(entry => entry.Display, StringComparer.CurrentCulture)]
+            : [.. favouritesFirst];
     }
 
     /// <summary>The text for a region: its full name, or its id if it has none, with the favourite mark in front if needed.</summary>
@@ -50,11 +53,11 @@ internal static class RegionList
         IEnumerable<string> regionIds, IReadOnlyCollection<string> favourites, bool alphabetical)
     {
         var ids = regionIds.ToList();
-        IOrderedEnumerable<string> favouriteIds = ids.Where(favourites.Contains).OrderBy(id => id, StringComparer.CurrentCulture);
+        IOrderedEnumerable<string> favouriteIds = ids.Where(favourites.Contains).OrderBy(id => id, StringComparer.Ordinal);
         IEnumerable<string> others = ids.Where(id => !favourites.Contains(id));
         if (alphabetical)
         {
-            others = others.OrderBy(id => id, StringComparer.CurrentCulture);
+            others = others.OrderBy(id => id, StringComparer.Ordinal);
         }
         return [.. favouriteIds, .. others];
     }

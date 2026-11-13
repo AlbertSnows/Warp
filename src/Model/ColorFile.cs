@@ -35,7 +35,7 @@ internal static class ColorFile
         foreach (string raw in lines)
         {
             string line = raw.Trim();
-            if (line.Length == 0 || line.StartsWith("//"))
+            if (line.Length == 0 || line.StartsWith("//", StringComparison.Ordinal))
             {
                 continue;
             }
@@ -50,7 +50,7 @@ internal static class ColorFile
                 index = 0;
                 continue;
             }
-            if (section == SubregionSection && line.StartsWith("["))
+            if (section == SubregionSection && line.StartsWith("[", StringComparison.Ordinal))
             {
                 region = line.Trim('[', ']');
                 regions[region] = [];
@@ -81,7 +81,7 @@ internal static class ColorFile
             index++;
         }
 
-        var subregions = start.Subregions.ToDictionary(pair => pair.Key, pair => pair.Value);
+        Dictionary<string, Hsl[]> subregions = start.Subregions.ToDictionary(pair => pair.Key, pair => pair.Value.ToArray());
         foreach (KeyValuePair<string, List<Hsl>> pair in regions)
         {
             subregions[pair.Key] = [.. pair.Value];
@@ -94,17 +94,26 @@ internal static class ColorFile
     {
         var text = new StringBuilder();
         text.AppendLine(TypeSection);
-        palette.Types.ToList().ForEach(color => text.AppendLine(Format(color)));
+        AppendColors(text, palette.Types);
         text.AppendLine(SizeSection);
-        palette.Sizes.ToList().ForEach(color => text.AppendLine(Format(color)));
+        AppendColors(text, palette.Sizes);
         text.AppendLine(SubregionSection);
-        foreach (KeyValuePair<string, Hsl[]> pair in palette.Subregions)
+        // In order of name, so saving twice writes the same file
+        foreach (KeyValuePair<string, IReadOnlyList<Hsl>> pair in palette.Subregions.OrderBy(pair => pair.Key, StringComparer.Ordinal))
         {
             text.AppendLine("[" + pair.Key + "]");
-            pair.Value.ToList().ForEach(color => text.AppendLine(Format(color)));
+            AppendColors(text, pair.Value);
         }
         text.Append(End);
         return text.ToString();
+    }
+
+    private static void AppendColors(StringBuilder text, IEnumerable<Hsl> colors)
+    {
+        foreach (Hsl color in colors)
+        {
+            text.AppendLine(Format(color));
+        }
     }
 
     /// <summary> A color as "hue:saturation:lightness", each rounded to two places. </summary>
@@ -115,7 +124,9 @@ internal static class ColorFile
 
     /// <summary>
     /// Reads "hue:saturation:lightness". Numbers written by this version use a decimal point. A file written by an
-    /// older version on a computer set to another language may use a comma, so that is accepted too.
+    /// older version on a computer set to another language may use a comma, so that is accepted too. Each number has
+    /// to be from 0 to 1, and one that is not, or is not a number at all (NaN and infinity parse as numbers), makes the
+    /// line a bad one. Anything after the third field is ignored.
     /// </summary>
     private static bool TryParseColor(string line, out Hsl color)
     {
@@ -128,7 +139,7 @@ internal static class ColorFile
         float[] numbers = new float[3];
         for (int i = 0; i < 3; i++)
         {
-            if (!TryParseNumber(fields[i], out numbers[i]))
+            if (!TryParseNumber(fields[i], out numbers[i]) || !IsUnit(numbers[i]))
             {
                 return false;
             }
@@ -136,6 +147,9 @@ internal static class ColorFile
         color = new Hsl(numbers[0], numbers[1], numbers[2]);
         return true;
     }
+
+    /// <summary> Whether a number is a usable color channel: finite, and from 0 to 1. </summary>
+    private static bool IsUnit(float number) => !float.IsNaN(number) && number is >= 0f and <= 1f;
 
     /// <summary>
     /// Reads a number written with a decimal point, or with a decimal comma as an older file on another language
