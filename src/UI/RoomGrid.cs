@@ -34,6 +34,9 @@ internal sealed class RoomGrid(Menu.Menu menu, MenuObject owner, RainWorldGame g
     /// <summary>The name of the room whose button the pointer is over, or null.</summary>
     public string HoveredRoom => _buttonRows.FirstOrDefault(row => row.Button.IsMouseOverMe)?.Room;
 
+    /// <summary>How visible a room button's colored outline is when the pointer is not on it.</summary>
+    private const float RestingOutline = 0.4f;
+
     /// <summary>Replaces the buttons and headings with those for this region, grouped and colored as asked.</summary>
     public void Show(RegionData region, Grouping sort, Grouping view, ColorPalette palette)
     {
@@ -48,7 +51,8 @@ internal sealed class RoomGrid(Menu.Menu menu, MenuObject owner, RainWorldGame g
         {
             RoomInfo room = rooms[placed.RoomIndex];
             var button = new WarpButton(menu, this, room.ShortName, WarpSignals.ForRoom(room.Name), Vector2.zero,
-                new Vector2(60f, 25f), HslColors.ToColor(palette.For(room, view, region.Region)));
+                new Vector2(60f, 25f), HslColors.ToColor(palette.For(room, view, region.Region)),
+                new ButtonStyle(RestingOutline, HoverGlow: true, RoomIcons.For(room.Type)));
             _buttonRows.Add(new ButtonRow(button, placed, room.Name));
             subObjects.Add(button);
         }

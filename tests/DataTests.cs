@@ -275,6 +275,17 @@ internal static class DataTests
 
     private static void RoomTypeTests()
     {
+        CheckEqual("an ordinary room has no icon", 0, RoomIcons.For(RoomType.Room).Count);
+        foreach (RoomTypeInfo info in RoomTypes.All.Where(info => info.Type != RoomType.Room))
+        {
+            IReadOnlyList<IconPart> icon = RoomIcons.For(info.Type);
+            Check(info.Type + " has an icon", icon.Count > 0);
+            Check(info.Type + "'s icon stays in its box", icon.All(part =>
+                Math.Abs(part.X) + part.Width / 2f <= RoomIcons.Size && Math.Abs(part.Y) + part.Height / 2f <= RoomIcons.Size));
+        }
+        CheckEqual("the types have different icons", RoomTypes.All.Count - 1,
+            RoomTypes.All.Where(info => info.Type != RoomType.Room).Select(info => RoomIcons.For(info.Type)).Distinct().Count());
+
         RoomType[] types = [.. Enum.GetValues(typeof(RoomType)).Cast<RoomType>()];
         CheckEqual("there is a row for every room type", types.Length, RoomTypes.All.Count);
         CheckEqual("each row is at the index of its type, which the palette depends on", true,

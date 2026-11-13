@@ -72,9 +72,17 @@ one of two things:
   `OverWorld.WorldLoaded`. `SwitchPolicy` makes the decisions (wait, move on, give up) from facts the stepper gathers, and
   it is pure, so its tests cover every timeout.
 
-Both paths wait for every player to be out of a shortcut, and both give up after 60 seconds (`SwitchPolicy` and
-`WarpWaitPolicy`, which are pure and tested). A failure is logged, the stage it happened in is named in the error text,
-and the pause menu is made again to show it.
+Both paths wait for every player to be out of a shortcut, and both give up after `WarpTimeout.Seconds` (60), as
+`SwitchPolicy` and `WarpWaitPolicy` decide; both are pure and tested. The driver reads the game's clock once a frame and
+passes it down as a `FrameClock`.
+
+The running warp is one `ActiveWarp` held by the driver (the request, when it was first seen, and the region switch or the
+destination room once there is one), or null when there is none, so ending or dropping a warp is setting it to null. The
+region switch holds its own state in one value too, with the loader only in the stage that has it.
+
+A step of a warp is run as a stage with `Staged.Run`. If it fails, the exception leaves as a `WarpStageException` that
+names the stage, and the innermost stage wins. The driver chooses the error text for the player from it, so there is no
+"current stage" to keep up to date. A failure is logged, shown in a new pause menu, and ends the warp.
 
 Every hook that calls into Warp catches what Warp throws and logs it once for each place (`Guard`), so a fault in Warp
 cannot stop the pause menu opening or repeat every frame. The game's own original method is never inside the catch.
@@ -87,14 +95,16 @@ cannot stop the pause menu opening or repeat every frame. The game's own origina
   `WorldLoader` still do.
 - Opening the pause menu while a switch is in progress cancels it. A `WorldLoader` that is abandoned part way leaves its
   worker thread idle for the rest of the session; the game has no way to stop it.
-- The log (`consoleLog.txt` in the game folder, not `BepInEx/LogOutput.log`) records each switch and how long it took.
+- The log, `BepInEx/LogOutput.log`, records each switch and how long it took, in lines tagged with the plugin's name.
 - If moving the players fails part way, the new world is already the active one and some players may have moved. That is
   not undone, because the players are partly in each world; only the HUD is rebuilt, so the camera does not fail on every
   frame. The log says the session may be unstable.
 
 ### Known limitations with Rain Meadow
 
-These come from the notes made while the non-blocking switch was developed, and have not all been retested on this build.
+This mod fixes the freeze, and nothing else about Meadow, by decision: anything more would be a change to Rain Meadow
+itself or a separate mod that works beside this one. These come from the notes made while the non-blocking switch was
+developed, and have not all been retested on this build.
 
 - Warp does not call the game's `OverWorld.WorldLoaded`, so Rain Meadow's own region change handling (releasing the old
   region, avatar fix-ups) is skipped. The non-blocking switch removes the freeze, not that gap. A Meadow hook for "a mod
@@ -104,6 +114,8 @@ These come from the notes made while the non-blocking switch was developed, and 
   and are the thing to watch with a second player.
 - Tested with Meadow as the host with nobody else in the lobby. Warping with a second player, shelters and sleeping, and
   dying or walking into a gate during a load were not tested.
+- MeadowWarpFix works around the blocking loop of the original Warp, which this build no longer has, so it should not be
+  needed beside this one. That has not been tested.
 - The preview's atlas is unloaded when the preview closes. That has not been tried in the game yet.
 - Both Warp Menu and this mod add the same menu, so this one declares the original incompatible, and BepInEx will not
   load both. That has not been tried with both installed.
@@ -146,3 +158,9 @@ Intended changes, in case one is noticed in the game:
   count from then on, so a second story session in the same run keeps them. Preferences and favourites are written as
   they change. Colors are changed in memory as the sliders move and are only written to disk by SAVE.
 - The version is in `Warp.csproj` and in `PluginInfo`, because BepInEx needs a constant. The build stops if they differ.
+- The mod's start-up cannot fail the game's own mod initialisation: the hooks are installed one at a time from a table, a
+  failure is logged by name, and the plugin marks itself started first so a partial install is never repeated.
+- Warp's messages are written through BepInEx's log, so they are in `BepInEx/LogOutput.log` with the plugin's name, where
+  they used to go to Unity's `consoleLog.txt` with a "WARP:" prefix.
+- The sprites are loaded by a path with a forward slash, which works on every platform.
+- The preview's texts fade in and out by the same amount; the closing fade used to start them from 1.
