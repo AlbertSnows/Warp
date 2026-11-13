@@ -211,26 +211,26 @@ internal sealed class ColorEditor : RectangularMenuObject, Slider.ISliderOwner
                 WarpState.SavePalette();
                 break;
             default:
-            {
-                if (WarpSignals.CategoryOf(message) is { } category)
                 {
-                    menu.PlaySound(SoundID.MENU_Add_Level);
-                    SetCategory(category);
-                }
-                else if (WarpSignals.SwatchOf(message) is { } index)
-                {
-                    menu.PlaySound(SoundID.MENU_Add_Level);
-                    Select(index);
-                    _current = ColorAt(index);
-                }
-                else
-                {
-                    // Not ours, so it goes on up; the editor's own messages stop here
-                    base.Singal(sender, message);
-                }
+                    if (WarpSignals.CategoryOf(message) is { } category)
+                    {
+                        menu.PlaySound(SoundID.MENU_Add_Level);
+                        SetCategory(category);
+                    }
+                    else if (WarpSignals.SwatchOf(message) is { } index)
+                    {
+                        menu.PlaySound(SoundID.MENU_Add_Level);
+                        Select(index);
+                        _current = ColorAt(index);
+                    }
+                    else
+                    {
+                        // Not ours, so it goes on up; the editor's own messages stop here
+                        base.Singal(sender, message);
+                    }
 
-                break;
-            }
+                    break;
+                }
         }
     }
 

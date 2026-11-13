@@ -30,12 +30,9 @@ Swarmroom|蝙蝠房
 SwarmRoom|蝙蝠房
 Scavenger Trader|拾荒者商店
 Scavenger Outpost|拾荒者前哨站
-ScavengerTrader|拾荒者商店
-ScavengerOutpost|拾荒者前哨站
 ScavTrader|拾荒者商店
 ScavOutpost|拾荒者前哨站
 ROOMS|房间
-SCREENS|屏幕
 SCAVTRADER|拾荒者商店
 SWARMROOM|蝙蝠房间
 SCAVOUTPOST|拾荒者前哨站
@@ -75,7 +72,6 @@ ROOM SIZE|房间大小
 SUBREGION|子区域
 LEFT|左
 RIGHT|右
-Error|错误
 
 Left click: Warp    -    Right click: Preview|左键：传送 - 右键：预览
 Left click: Load Region    -    Shift click: Reload Region|左键：加载区域 - Shift+点击：重新加载区域

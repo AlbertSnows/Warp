@@ -96,6 +96,17 @@
     <EmbeddedResource Include="Resources\Colors.txt" />
   </ItemGroup>
 
+
+  <!-- BepInEx reads the version from an attribute, which needs a constant, so it is written in src/PluginInfo.cs as well
+       as in Version above. The build stops if the two differ. -->
+  <Target Name="CheckVersionsMatch" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <PluginInfoVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)/src/PluginInfo.cs')), 'Version = "([^"]+)"').Groups[1].Value)</PluginInfoVersion>
+    </PropertyGroup>
+    <Error Condition="'$(PluginInfoVersion)' != '$(Version)'"
+           Text="Version is $(Version) in Warp.csproj but $(PluginInfoVersion) in src/PluginInfo.cs. Make them the same." />
+  </Target>
+
   <!--
     Stages the mod as the game and the Workshop expect it, in bin/package/warp-for-meadow:
     modinfo.json (its version filled in from Version above), newest/plugins/Warp.dll, sprites and text. Run it with

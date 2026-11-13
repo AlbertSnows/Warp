@@ -18,15 +18,15 @@ internal sealed record RoomInfo(
     int Subregion = 0)
 {
     /// <summary>
-    /// The name without the region prefix ("A01" for "SU_A01"), which is what a button shows. Null when the name has
-    /// no underscore, and such a room gets no button.
+    /// The name without the region prefix ("A01" for "SU_A01"), which is what a button shows. The whole name if it has
+    /// no underscore to cut at.
     /// </summary>
-    public string? ShortName
+    public string ShortName
     {
         get
         {
             int underscore = Name.IndexOf('_');
-            return underscore < 0 || underscore == Name.Length - 1 ? null : Name.Substring(underscore + 1);
+            return underscore < 0 || underscore == Name.Length - 1 ? Name : Name.Substring(underscore + 1);
         }
     }
 

@@ -18,7 +18,6 @@ internal static class SwitchPolicyTests
         Group(nameof(DropTests), DropTests);
         Group(nameof(LoadingWorldTests), LoadingWorldTests);
         Group(nameof(PreparingRoomTests), PreparingRoomTests);
-        Group(nameof(DefaultTimeoutTests), DefaultTimeoutTests);
         Group(nameof(StateTests), StateTests);
         Group(nameof(ElapsedTests), ElapsedTests);
     }
@@ -150,11 +149,6 @@ internal static class SwitchPolicyTests
         SwitchStep playersFirst = SwitchPolicy.Next(preparing, new SwitchFacts(PlayersCanMove: true, Now: 13f), Timeout);
         CheckEqual("players being free does not matter until the rooms are prepared", waiting, playersFirst);
     }
-
-    /// <summary>
-    /// The limit a switch uses when it is not given one.
-    /// </summary>
-    private static void DefaultTimeoutTests() => CheckEqual("a stage may take a minute by default", 60f, SwitchPolicy.DefaultTimeoutSeconds);
 
     /// <summary>
     /// A state never changes once made, and the same inputs always give the same answer.

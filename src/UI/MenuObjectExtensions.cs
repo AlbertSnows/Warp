@@ -38,10 +38,3 @@ internal static class MenuObjectExtensions
     /// <summary> Moves a control to a place across at once, keeping its height. </summary>
     public static void SetX(this RectangularMenuObject item, float x) => item.MoveTo(new Vector2(x, item.pos.y));
 }
-
-/// <summary> Sizes and places the menu shares. </summary>
-internal static class UiLayout
-{
-    /// <summary> A height far enough below the screen that nothing there can be seen, used to hide a part of the menu. </summary>
-    public const float OffScreenY = -2000f;
-}

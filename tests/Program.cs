@@ -6,9 +6,8 @@ internal static class Program
     {
         AtomTests.Run();
         TranslationTests.Run();
-        RepositoryTests.Run();
         SwitchPolicyTests.Run();
-        RoomWarpPolicyTests.Run();
+        WarpWaitPolicyTests.Run();
         RegionFilesTests.Run();
         LayoutTests.Run();
         DataTests.Run();

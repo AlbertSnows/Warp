@@ -20,7 +20,7 @@ internal sealed class RoomWarp
     /// <summary>
     /// Does one frame's work towards the request. Returns true once the players are in the room and the camera has
     /// followed (or the warp no longer applies), and false while it is still waiting. Throws if the room does not
-    /// exist, or if it takes longer than <see cref="RoomWarpPolicy.DefaultTimeoutSeconds"/>.
+    /// exist, or if it takes longer than <see cref="WarpWaitPolicy.DefaultTimeoutSeconds"/>.
     /// </summary>
     public bool Update(OverWorld overWorld, WarpRequest request)
     {
@@ -40,24 +40,24 @@ internal sealed class RoomWarp
         }
 
         Room realized = _room.realizedRoom;
-        var facts = new RoomWarpFacts(
+        var facts = new WarpWaitFacts(
             StillApplies: game.AlivePlayers.Count > 0,
-            RoomReady: realized is { ReadyForPlayer: true },
+            Ready: realized is { ReadyForPlayer: true },
             PlayersCanMove: PlayerOps.PlayersCanMove(game),
             Now: now);
-        switch (RoomWarpPolicy.Next(_startTime.Value, facts, RoomWarpPolicy.DefaultTimeoutSeconds))
+        switch (WarpWaitPolicy.Next(_startTime.Value, facts, WarpWaitPolicy.DefaultTimeoutSeconds))
         {
-            case RoomWarpAction.Drop:
+            case WarpWaitAction.Drop:
                 Finish();
                 return true;
-            case RoomWarpAction.TimedOut:
-                Stage = facts.RoomReady ? WarpStage.MovePlayer : WarpStage.RealiseRoom;
+            case WarpWaitAction.TimedOut:
+                Stage = facts.Ready ? WarpStage.MovePlayer : WarpStage.RealiseRoom;
                 Finish();
                 throw new TimeoutException(
-                    "The warp did not finish within " + RoomWarpPolicy.DefaultTimeoutSeconds + " seconds.");
-            case RoomWarpAction.Wait:
+                    "The warp did not finish within " + WarpWaitPolicy.DefaultTimeoutSeconds + " seconds.");
+            case WarpWaitAction.Wait:
                 return false;
-            case RoomWarpAction.Move:
+            case WarpWaitAction.Go:
                 break;
             default:
                 throw new ArgumentOutOfRangeException();

@@ -48,13 +48,18 @@ internal static class LayoutTests
         CheckEqual("the 22nd starts the next column, pulled in by 10", (855f, 620f),
             (tall.Buttons[21].X, tall.Buttons[21].Y));
 
-        RoomInfo[] noButton = [new("OFFSCREEN", Subregion: 0), new("SU_A", Subregion: 1)];
-        var bySubregion = RoomGridLayout.Compute(noButton, Grouping.Subregion, 1000f, 700f);
-        CheckEqual("a heading with no buttons under it pushes the next group out by 5 for subregions",
-            (945f, 915f), (bySubregion.Labels[1].X, bySubregion.Buttons[0].X));
-        var byType = RoomGridLayout.Compute(
-            [new RoomInfo("OFFSCREEN"), new RoomInfo("SU_A", RoomType.Shelter)], Grouping.Type, 1000f, 700f);
-        CheckEqual("and does not for the other groupings", (950f, 920f), (byType.Labels[1].X, byType.Buttons[0].X));
+        // A group that fills its column exactly leaves the next group at the top of a fresh column, which only the
+        // subregion grouping nudges out by 5
+        RoomInfo[] afterFullColumn =
+        [
+            .. Enumerable.Range(0, 21).Select(i => new RoomInfo("SU_R" + i)),
+            new("SU_X", RoomType.Shelter, Subregion: 1)
+        ];
+        var bySubregion = RoomGridLayout.Compute(afterFullColumn, Grouping.Subregion, 1000f, 700f);
+        CheckEqual("after a full column, subregions nudge the next group out by 5", (880f, 850f),
+            (bySubregion.Labels[1].X, bySubregion.Buttons[21].X));
+        var byType = RoomGridLayout.Compute(afterFullColumn, Grouping.Type, 1000f, 700f);
+        CheckEqual("and the other groupings do not", (885f, 855f), (byType.Labels[1].X, byType.Buttons[21].X));
     }
 
     private static void GridPageTests()

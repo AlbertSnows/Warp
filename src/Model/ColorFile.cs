@@ -81,7 +81,7 @@ internal static class ColorFile
             index++;
         }
 
-        Dictionary<string, Hsl[]> subregions = start.Subregions.ToDictionary(pair => pair.Key, pair => pair.Value.ToArray());
+        var subregions = start.Subregions.ToDictionary(pair => pair.Key, pair => pair.Value.ToArray());
         foreach (KeyValuePair<string, List<Hsl>> pair in regions)
         {
             subregions[pair.Key] = [.. pair.Value];

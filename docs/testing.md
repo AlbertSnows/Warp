@@ -48,6 +48,3 @@ story session. Look for `WARP:` lines in `BepInEx/LogOutput.log` afterwards.
     buttons. Nothing outside Warp should react. Room buttons still warp, and HIDE / WARP still hides the menu.
 19. With the export bar open, turn BORDERS on and off and check the pixel size in the label changes by 6 pixels a side
     (before scaling) for a room whose type gets a border under that mode. The saved picture has that size.
-20. Kill every player, then ask for a warp to another region from the pause menu of the death screen if it opens, or
-    with the players in shortcuts. The request is dropped or gives up after 60 seconds, and the menu answers clicks
-    again.

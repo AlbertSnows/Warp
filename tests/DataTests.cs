@@ -177,13 +177,6 @@ internal static class DataTests
     private static void RegionListTests()
     {
         string[] ids = ["SU", "HI", "CC", "DS", "SU"];
-        string? Name(string id) => id switch
-        {
-            "SU" => "Outskirts",
-            "HI" => "Industrial Complex",
-            "CC" => null,
-            _ => "Drainage"
-        };
         var favourites = new HashSet<string> { "HI" };
 
         List<RegionEntry> alphabetical = RegionList.DropdownEntries(ids, Name, favourites, true);
@@ -200,6 +193,15 @@ internal static class DataTests
             RegionList.ButtonOrder(ids.Distinct(), favourites, false));
         CheckSequence("favourite buttons are always sorted", ["CC", "HI", "SU"],
             RegionList.ButtonOrder(["SU", "HI", "CC"], new HashSet<string> { "SU", "HI", "CC" }, false));
+        return;
+
+        string? Name(string id) => id switch
+        {
+            "SU" => "Outskirts",
+            "HI" => "Industrial Complex",
+            "CC" => null,
+            _ => "Drainage"
+        };
     }
 
     private static void ExportTests()

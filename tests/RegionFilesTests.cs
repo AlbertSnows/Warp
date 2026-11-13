@@ -114,8 +114,8 @@ internal static class RegionFilesTests
     {
         CheckEqual("the short name drops the region", "A01", new RoomInfo("SU_A01").ShortName);
         CheckEqual("only the first underscore counts", "HI_A", new RoomInfo("GATE_HI_A").ShortName);
-        CheckEqual("no underscore, no short name", null, new RoomInfo("OFFSCREEN").ShortName);
-        CheckEqual("nothing after the underscore, no short name", null, new RoomInfo("SU_").ShortName);
+        CheckEqual("no underscore to cut at, the whole name", "OFFSCREEN", new RoomInfo("OFFSCREEN").ShortName);
+        CheckEqual("nothing after the underscore, the whole name", "SU_", new RoomInfo("SU_").ShortName);
 
         var room = new RoomInfo("SU_A01", RoomType.Shelter, 4, 2);
         CheckEqual("group by type", (int)RoomType.Shelter, room.GroupKey(Grouping.Type));

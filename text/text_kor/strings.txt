@@ -29,12 +29,9 @@ Swarmroom|박쥐 방
 SwarmRoom|박쥐 방
 Scavenger Trader|스캐빈저 상인
 Scavenger Outpost|스캐빈저 
-ScavengerTrader|스캐빈저 상인
-ScavengerOutpost|스캐빈저 요금소
 ScavTrader|스캐빈저 상인
 ScavOutpost|스캐빈저 요금소
 ROOMS|방
-SCREENS|화면
 SCAVTRADER|스캐빈저 상인
 SWARMROOM|박쥐 방
 SCAVOUTPOST|스캐빈저 요금소
@@ -75,7 +72,6 @@ SUBREGION|하위 지역
 LEFT|왼쪽
 RIGHT|오른쪽
 SWARM|박쥐 방
-Error|오류
 
 Left click on the preview to warp to that location  -  Right click to dismiss|프리뷰에 좌클릭해 그 위치로 워프  -  우클릭으로 취소
 Left click: Warp    -    Right click: Preview|좌클릭: 워프    -    우클릭: 미리보기

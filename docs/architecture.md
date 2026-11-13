@@ -73,7 +73,7 @@ one of two things:
   it is pure, so its tests cover every timeout.
 
 Both paths wait for every player to be out of a shortcut, and both give up after 60 seconds (`SwitchPolicy` and
-`RoomWarpPolicy`, which are pure and tested). A failure is logged, the stage it happened in is named in the error text,
+`WarpWaitPolicy`, which are pure and tested). A failure is logged, the stage it happened in is named in the error text,
 and the pause menu is made again to show it.
 
 Every hook that calls into Warp catches what Warp throws and logs it once for each place (`Guard`), so a fault in Warp
@@ -145,4 +145,4 @@ Intended changes, in case one is noticed in the game:
 - Preferences, favourites and colors are read from disk once per run of the game; the values in memory are the ones that
   count from then on, so a second story session in the same run keeps them. Preferences and favourites are written as
   they change. Colors are changed in memory as the sliders move and are only written to disk by SAVE.
-- The version and name come from one place, `PluginInfo`, checked against `Warp.csproj` by a test.
+- The version is in `Warp.csproj` and in `PluginInfo`, because BepInEx needs a constant. The build stops if they differ.

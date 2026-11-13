@@ -13,14 +13,10 @@ namespace Warp.Tests;
 /// in the files, so a changed spelling in the code (a spelling checker's "fix", say) silently leaves the translation
 /// unused.
 /// </summary>
-internal static partial class TranslationTests
+internal static class TranslationTests
 {
-    /// <summary>
-    /// Keys in the files that the code does not use as one piece of text. The first two are read by the game, not by
-    /// the code. The others have been unused since upstream, and are kept for the translators.
-    /// </summary>
-    private static readonly string[] _notUsedByCode =
-        ["warp-name", "warp-description", "ScavengerTrader", "ScavengerOutpost", "SCREENS", "Error"];
+    /// <summary> Keys in the files that the game reads, not the code. </summary>
+    private static readonly string[] _notUsedByCode = ["warp-name", "warp-description"];
 
     /// <summary>
     /// Keys with two different translations in a file that need a speaker of the language to choose. Korean has both
@@ -31,7 +27,6 @@ internal static partial class TranslationTests
     public static void Run()
     {
         Group(nameof(KeyTests), KeyTests);
-        Group(nameof(VersionTests), VersionTests);
     }
 
     internal static string? FindRepositoryRoot()
@@ -74,28 +69,4 @@ internal static partial class TranslationTests
                     .Select(group => group.Key));
         }
     }
-
-    /// <summary> The plugin's version is written in two places, because BepInEx needs a constant. They have to agree. </summary>
-    private static void VersionTests()
-    {
-        string? root = FindRepositoryRoot();
-        if (root == null)
-        {
-            return;
-        }
-
-        string project = File.ReadAllText(Path.Combine(root, "Warp.csproj"));
-        string info = File.ReadAllText(Path.Combine(root, "src", "PluginInfo.cs"));
-        string projectVersion = ProjectVersionElement().Match(project).Groups[1].Value;
-        string codeVersion = PluginInfoVersionConstant().Match(info).Groups[1].Value;
-        CheckEqual("Warp.csproj and PluginInfo.cs give the same version", projectVersion, codeVersion);
-        Check("and it is a version", Regex.IsMatch(codeVersion, @"^\d+\.\d+\.\d+$"));
-    }
-
-    /// <summary> The version in Warp.csproj: the text inside its Version element. </summary>
-    [GeneratedRegex("<Version>([^<]+)</Version>")]
-    private static partial Regex ProjectVersionElement();
-    /// <summary> The version in PluginInfo.cs: the text in quotes after "Version = ". </summary>
-    [GeneratedRegex("Version = \"([^\"]+)\"")]
-    private static partial Regex PluginInfoVersionConstant();
 }

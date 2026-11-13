@@ -67,27 +67,27 @@ internal static class WarpDriver
 
     /// <summary>
     /// A warp to another region that has not started. It waits until the players can move, and gives up after
-    /// <see cref="RoomWarpPolicy.DefaultTimeoutSeconds"/> or when none is alive, as decided by
-    /// <see cref="WarpStartPolicy"/>.
+    /// <see cref="WarpWaitPolicy.DefaultTimeoutSeconds"/> or when none is alive, as <see cref="WarpWaitPolicy"/> decides,
+    /// with nothing else to wait for.
     /// </summary>
     private static void UpdateStart(OverWorld overWorld, WarpRequest request, float firstSeen, float now)
     {
         RainWorldGame game = overWorld.game;
-        var facts = new WarpStartFacts(game.AlivePlayers.Count > 0, PlayerOps.PlayersCanMove(game), now);
-        switch (WarpStartPolicy.Next(firstSeen, facts, RoomWarpPolicy.DefaultTimeoutSeconds))
+        var facts = new WarpWaitFacts(game.AlivePlayers.Count > 0, true, PlayerOps.PlayersCanMove(game), now);
+        switch (WarpWaitPolicy.Next(firstSeen, facts, WarpWaitPolicy.DefaultTimeoutSeconds))
         {
-            case WarpStartAction.Begin:
+            case WarpWaitAction.Go:
                 BeginRegionSwitch(overWorld, request);
                 break;
-            case WarpStartAction.Drop:
+            case WarpWaitAction.Drop:
                 End();
                 break;
-            case WarpStartAction.TimedOut:
+            case WarpWaitAction.TimedOut:
                 Fail(overWorld, new TimeoutException("The players could not move within "
-                                                     + RoomWarpPolicy.DefaultTimeoutSeconds + " seconds."),
+                                                     + WarpWaitPolicy.DefaultTimeoutSeconds + " seconds."),
                     WarpStageText.ErrorText(WarpStage.MovePlayer));
                 break;
-            case WarpStartAction.Wait:
+            case WarpWaitAction.Wait:
                 break;
             default:
                 throw new ArgumentOutOfRangeException();

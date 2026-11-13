@@ -56,7 +56,7 @@ internal static class PreviewTests
         CheckEqual("a path flag does not replace an exit", ShortcutKind.Exit, first.At(0, 0).Shortcut);
 
         var short1 = RoomTiles.Parse(RoomFile("2*2|-1|0", "1|1|"));
-        RoomTiles unknown = RoomTiles.Parse(RoomFile("1*2|-1|0", "9|x|"));
+        var unknown = RoomTiles.Parse(RoomFile("1*2|-1|0", "9|x|"));
         CheckEqual("a terrain number the game does not know reads as air", Terrain.Air, unknown.At(0, 1).Terrain);
         CheckEqual("and so does text that is not a number", Terrain.Air, unknown.At(0, 0).Terrain);
         CheckEqual("a file with too few tiles leaves the rest as air", Terrain.Air, short1.At(1, 1).Terrain);
@@ -65,7 +65,7 @@ internal static class PreviewTests
     private static void EdgeTests()
     {
         Tile[,] tiles = new[,] { { Of(Terrain.Solid), Of(Terrain.ShortcutEntrance) }, { Air, Air with { Shortcut = ShortcutKind.Exit } } };
-        var room = Room(tiles);
+        RoomTiles room = Room(tiles);
         CheckEqual("inside the room", Terrain.ShortcutEntrance, room.At(0, 1).Terrain);
         CheckEqual("outside reads the nearest tile", Terrain.Solid, room.At(-3, 0).Terrain);
         CheckEqual("an entrance past the edge reads as rock", Terrain.Solid, room.At(0, 5).Terrain);
@@ -74,7 +74,6 @@ internal static class PreviewTests
 
     private static void SlopeTests()
     {
-        Tile[,] Grid(int x, int y) => new Tile[3, 3].Fill(Air).With(1, 1, Of(Terrain.Slope)).With(x, y, Of(Terrain.Solid));
         CheckEqual("rock to the left and below leans up and right", SlopeDirection.UpRight,
             Room(Grid(0, 1).With(1, 0, Of(Terrain.Solid))).SlopeAt(1, 1));
         CheckEqual("rock to the left and above", SlopeDirection.DownRight,
@@ -85,6 +84,8 @@ internal static class PreviewTests
             Room(Grid(2, 1).With(1, 2, Of(Terrain.Solid))).SlopeAt(1, 1));
         CheckEqual("a slope with no rock beside it is broken", SlopeDirection.Broken, Room(Grid(0, 0)).SlopeAt(1, 1));
         CheckEqual("a tile that is not a slope is broken", SlopeDirection.Broken, Room(Grid(0, 1)).SlopeAt(0, 1));
+        return;
+        Tile[,] Grid(int x, int y) => new Tile[3, 3].Fill(Air).With(1, 1, Of(Terrain.Slope)).With(x, y, Of(Terrain.Solid));
     }
 
     private static void PaintTests()

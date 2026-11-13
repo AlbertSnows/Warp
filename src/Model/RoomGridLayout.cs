@@ -27,7 +27,7 @@ internal sealed record RoomGridLayout(PlacedButton[] Buttons, PlacedLabel[] Labe
     }
 
     /// <summary>The left edge of the room area. A button further left than this goes on the second page.</summary>
-    internal const float PageEdge = 250f;
+    public const float PageEdge = 250f;
 
     /// <summary>
     /// Page 1 is laid out at the left of the screen, where it would be hidden behind the control panel. It is shown
@@ -49,7 +49,7 @@ internal sealed record RoomGridLayout(PlacedButton[] Buttons, PlacedLabel[] Labe
 
     /// <summary>
     /// Lays out the rooms, which must already be in display order. The screen width is the usable width, without the
-    /// margin on the right. A room without a short name has no button, but still opens a new group heading.
+    /// margin on the right. Every room gets a button.
     /// </summary>
     public static RoomGridLayout Compute(
         IReadOnlyList<RoomInfo> rooms, Grouping grouping, float screenWidth, float screenHeight)
@@ -75,10 +75,6 @@ internal sealed record RoomGridLayout(PlacedButton[] Buttons, PlacedLabel[] Labe
                 labels.Add(Place(new PlacedLabel(key, screenWidth - (50f + shift) - ColumnWidth * column,
                     screenHeight - LabelTop, 0)));
             }
-            if (rooms[i].ShortName == null)
-            {
-                continue;
-            }
             float x = screenWidth - (80f + shift) - ColumnWidth * column;
             float y = screenHeight - ButtonTop - RowHeight * row;
             buttons.Add(Place(new PlacedButton(i, x, y, 0)));
@@ -99,7 +95,7 @@ internal sealed record RoomGridLayout(PlacedButton[] Buttons, PlacedLabel[] Labe
     /// <summary>
     /// How the column position changes when a new group starts. A group that left a column part filled moves on to
     /// the next column and pulls the grid 5 units closer. The subregion grouping alone pushes the grid 5 units
-    /// further apart when the previous group left no column part filled.
+    /// further apart when the previous group filled its column exactly, so the next group starts at the top of a fresh one.
     /// </summary>
     private static (int Column, float Shift) StartGroup(Grouping grouping, int row, int column, float shift)
     {
