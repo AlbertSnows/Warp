@@ -1,24 +1,47 @@
 using System;
+using BepInEx.Logging;
 using UnityEngine;
 
 namespace Warp.Util;
 
 /// <summary>
-/// The plugin's messages in Unity's log (and so in BepInEx's LogOutput.log). Every line starts with "WARP:" so it is
-/// easy to find.
+/// The plugin's messages, written through BepInEx's log so they end up in BepInEx/LogOutput.log, which is the file people
+/// paste into a bug report. The log source's name tags each line, so the messages carry no prefix of their own. Before
+/// <see cref="Initialize"/> has been called, and so only for a fault that happens that early, they go to Unity's log with
+/// a "WARP:" prefix.
 /// </summary>
 internal static class WarpLog
 {
-    private const string Prefix = "WARP: ";
+    private static ManualLogSource _source;
 
-    public static void Info(string message) => Debug.Log(Prefix + message);
+    /// <summary> Sets the log source the messages go to. Call it once, when the plugin starts. </summary>
+    public static void Initialize(ManualLogSource source) => _source = source;
 
-    public static void Error(string message) => Debug.LogError(Prefix + message);
+    public static void Info(string message) => Write(LogLevel.Info, message);
 
-    /// <summary>Logs an exception with a line that says what was being done.</summary>
+    public static void Error(string message) => Write(LogLevel.Error, message);
+
+    /// <summary> Logs an exception, with its stack trace, after a line that says what was being done. </summary>
     public static void Exception(string whileDoing, Exception error)
     {
-        Debug.Log(Prefix + "Error while " + whileDoing + ":");
-        Debug.LogException(error);
+        Error("Error while " + whileDoing + ":");
+        Write(LogLevel.Error, error.ToString());
+    }
+
+    /// <summary> Sends a message to the log source, or to Unity's log if there is none yet. </summary>
+    private static void Write(LogLevel level, string message)
+    {
+        if (_source != null)
+        {
+            _source.Log(level, message);
+        }
+        else if (level == LogLevel.Error)
+        {
+            Debug.LogError("WARP: " + message);
+        }
+        else
+        {
+            Debug.Log("WARP: " + message);
+        }
     }
 }

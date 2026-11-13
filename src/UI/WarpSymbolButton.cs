@@ -21,10 +21,8 @@ internal sealed class WarpSymbolButton : SymbolButton
     {
         if (!buttonBehav.greyedOut)
         {
-            float glow = Mathf.Max(
-                Mathf.Lerp(buttonBehav.lastCol, buttonBehav.col, timeStacker),
-                Mathf.Lerp(buttonBehav.lastFlash, buttonBehav.flash, timeStacker));
-            var from = Color.Lerp(Color.Lerp(Menu.Menu.MenuColor(Menu.Menu.MenuColors.DarkGrey).rgb, Tint, 0.7f), Tint, glow);
+            var from = Color.Lerp(Color.Lerp(Menu.Menu.MenuColor(Menu.Menu.MenuColors.DarkGrey).rgb, Tint, 0.7f), Tint,
+                buttonBehav.Glow(timeStacker));
             return Color.Lerp(from, Menu.Menu.MenuColor(Menu.Menu.MenuColors.Black).rgb, black);
         }
         if (maintainOutlineColorWhenGreyedOut)

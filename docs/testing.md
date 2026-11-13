@@ -13,7 +13,8 @@ errors. The tests cover `src/Model`, `src/Preview`, the
 
 The menu itself is Rain World's `MenuObject`s and cannot be run outside the game. After a change to `src/UI`,
 `src/Hooks`, `src/Game` or `src/Switching`, build a Debug version into the game's mods folder and go through this in a
-story session. Look for `WARP:` lines in `BepInEx/LogOutput.log` afterwards.
+story session. Look at `BepInEx/LogOutput.log` afterwards: Warp's lines are tagged "Warp For Meadow", and any
+error from it is there with its stack trace.
 
 1. Pause. The Warp menu is on the left and the room buttons on the right, in the current region. HIDE hides the menu and
    brings back the controls picture; WARP shows it again. The choice is kept when you pause again.
@@ -48,3 +49,12 @@ story session. Look for `WARP:` lines in `BepInEx/LogOutput.log` afterwards.
     buttons. Nothing outside Warp should react. Room buttons still warp, and HIDE / WARP still hides the menu.
 19. With the export bar open, turn BORDERS on and off and check the pixel size in the label changes by 6 pixels a side
     (before scaling) for a room whose type gets a border under that mode. The saved picture has that size.
+20. The log tags Warp's lines with the plugin's name in `BepInEx/LogOutput.log` (not in `consoleLog.txt`), and a warp
+    writes the "Loading room ..." and "Region switch finished ..." lines there.
+21. On a native Linux or macOS build, the buttons have their symbols (the atlas path uses forward slashes).
+22. Open a room preview and close it with the right button. The texts at the bottom fade in and out by the same amount,
+    and do not jump when it starts to close.
+23. Make a warp fail (for example, in a test region, rename one room's file so it cannot load) and check the pause menu
+    shows the message for the stage that failed (loading the region, or realising the room), not a general one.
+24. Warp to another region, then open the pause menu while it is still loading. The warp is dropped and a new one can be
+    started.

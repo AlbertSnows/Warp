@@ -15,7 +15,6 @@ namespace Warp.UI;
 /// </summary>
 internal sealed class WarpContainer : RectangularMenuObject
 {
-    private readonly RainWorldGame _game;
     private readonly PauseMenu _pause;
     private readonly FSprite _background;
     private readonly MenuLabel _denLabel;
@@ -36,11 +35,10 @@ internal sealed class WarpContainer : RectangularMenuObject
     {
         try
         {
-            _game = menu.game;
             _pause = menu;
-            Vector2 screen = _game.rainWorld.options.ScreenSize;
+            Vector2 screen = UiLayout.Screen(menu.game.rainWorld);
             Preferences preferences = WarpState.Preferences;
-            WarpState.SelectRegion(_game.world.region.name);
+            WarpState.SelectRegion(menu.game.world.region.name);
 
             _background = new FSprite("LinearGradient200")
             {
@@ -61,7 +59,7 @@ internal sealed class WarpContainer : RectangularMenuObject
                 new Vector2(75f, LeftPanelLayout.StatsButtonYFor(screen.y)), new Vector2(45f, 20f), StatsTint(preferences.ShowStats));
             subObjects.Add(_statsButton);
 
-            _picker = new RegionPicker(menu, this, _game, WarpState.SelectedRegion, _statsButton.pos);
+            _picker = new RegionPicker(menu, this, menu.game, WarpState.SelectedRegion, _statsButton.pos);
             subObjects.Add(_picker);
             _picker.RegionChosen += ChooseRegion;
             _picker.ListToggled += ApplyLayout;
@@ -76,14 +74,10 @@ internal sealed class WarpContainer : RectangularMenuObject
 
             _legend = new Legend(menu, this);
             subObjects.Add(_legend);
-            _legend.Changed += OnSortOrViewChanged;
-            _grid = new RoomGrid(menu, this, _game);
+            _legend.Changed += Refresh;
+            _grid = new RoomGrid(menu, this, menu.game);
             subObjects.Add(_grid);
 
-            if (preferences.ShowStats)
-            {
-                _stats = AddStats();
-            }
             if (!string.IsNullOrEmpty(WarpState.Error))
             {
                 var errorLabel = new MenuLabel(menu, this, WarpState.Error, new Vector2(682f, 72f), Vector2.zero, true);
@@ -108,8 +102,10 @@ internal sealed class WarpContainer : RectangularMenuObject
         set;
     }
 
+    /// <summary> The STATS button's color for the panel being on or off. </summary>
     private static Color StatsTint(bool on) => on ? UiColors.Stats : Menu.Menu.MenuRGB(Menu.Menu.MenuColors.MediumGrey);
 
+    /// <summary> Adds a text label with the given alignment. </summary>
     private MenuLabel AddLabel(string text, Vector2 labelPos, FLabelAlignment alignment)
     {
         var label = new MenuLabel(menu, this, text, labelPos, Vector2.zero, false)
@@ -123,6 +119,7 @@ internal sealed class WarpContainer : RectangularMenuObject
         return label;
     }
 
+    /// <summary> Adds one of the three small symbol buttons. Their height is set by <see cref="ApplyLayout"/>. </summary>
     private WarpSymbolButton AddToggle(string symbol, string signal, float x)
     {
         var toggle = new WarpSymbolButton(menu, this, symbol, signal, new Vector2(x, 0f), 30f);
@@ -130,11 +127,15 @@ internal sealed class WarpContainer : RectangularMenuObject
         return toggle;
     }
 
-    private StatsPanel AddStats()
+    /// <summary> Shows the stats of the selected region, making the panel first if it is not there. </summary>
+    private void ShowStats()
     {
-        var stats = new StatsPanel(menu, this);
-        subObjects.Add(stats);
-        return stats;
+        if (_stats == null)
+        {
+            _stats = new StatsPanel(menu, this);
+            subObjects.Add(_stats);
+        }
+        _stats.Show(RegionStats.Of(RegionCatalog.Get(WarpState.SelectedRegion).Rooms));
     }
 
     // ---- Showing the selected region ----------------------------------------------------------------------------
@@ -142,14 +143,13 @@ internal sealed class WarpContainer : RectangularMenuObject
     private void ChooseRegion(string region, bool reload)
     {
         WarpState.SelectRegion(region);
-        if (reload || !RegionCatalog.IsLoaded(region))
+        if (reload)
         {
             RegionCatalog.Reload(region);
         }
         Refresh();
     }
 
-    private void OnSortOrViewChanged() => Refresh();
 
     /// <summary>
     /// Shows the selected region in the grid, the key and the stats. Does nothing to the grid while the color editor
@@ -165,7 +165,10 @@ internal sealed class WarpContainer : RectangularMenuObject
         Preferences preferences = WarpState.Preferences;
         _grid.Show(data, preferences.Sort, preferences.View, WarpState.Palette);
         _legend.Rebuild(data, preferences.Sort, preferences.View, WarpState.Palette);
-        _stats?.Show(RegionStats.Of(data.Rooms));
+        if (preferences.ShowStats)
+        {
+            ShowStats();
+        }
         ApplyLayout();
     }
 
@@ -176,7 +179,7 @@ internal sealed class WarpContainer : RectangularMenuObject
             return;
         }
         var layout = LeftPanelLayout.Compute(new LeftPanelInput(
-            _game.rainWorld.options.ScreenSize.y, _picker.DropdownMode, _picker.DropdownOpen, _picker.ButtonCount,
+            UiLayout.Screen(_pause.game.rainWorld).y, _picker.DropdownMode, _picker.DropdownOpen, _picker.ButtonCount,
             _legend.KeyEntryCount, _legend.KeyIsRow, _legend.SubregionEntryCount, _stats != null));
         _legend.Place(layout);
         foreach (WarpSymbolButton toggle in new[] { _listToggle, _colorToggle, _favouriteToggle })
@@ -216,12 +219,12 @@ internal sealed class WarpContainer : RectangularMenuObject
     [
         new(container => container._grid.IsHot, "Left click: Warp    -    Right click: Preview"),
         new(container => container._picker.IsHot, "Left click: Load Region    -    Shift click: Reload Region"),
-        new(container => IsHot(container._listToggle),
+        new(container => container._listToggle.IsHot(),
             "Toggle the region list between list view and button view #SEPARATOR# Shift click to toggle alphabetical sorting"),
         // The spelling "customiser" is the key in the translation files, so it has to stay as it is
-        new(container => IsHot(container._colorToggle),
+        new(container => container._colorToggle.IsHot(),
             "Opens the colour customiser where you can change the colors for room types, sizes and subregions"),
-        new(container => IsHot(container._favouriteToggle),
+        new(container => container._favouriteToggle.IsHot(),
             "Toggle whether this region is favourited, putting it to the top of the list")
     ];
 
@@ -238,7 +241,6 @@ internal sealed class WarpContainer : RectangularMenuObject
         _pause.infoLabel.alpha = 1f;
     }
 
-    private static bool IsHot(ButtonTemplate button) => button.Selected || button.IsMouseOverMe;
 
     private void OpenPreviewOnRightClick()
     {
@@ -272,7 +274,7 @@ internal sealed class WarpContainer : RectangularMenuObject
         string text = den == null
             ? "Den Position: {0} #SEPARATOR# Hold shift + click a room to assign"
             : "Den Position: {0} #SEPARATOR# Press C to clear";
-        _denLabel.label.text = Translator.Format(text, Translator.Translate(den ?? "NONE")).Replace("#SEPARATOR#", "|");
+        _denLabel.label.text = Translator.FormatWithSeparator(text, Translator.Translate(den ?? "NONE"));
         _denShown = den;
         _denLabelShown = true;
     }
@@ -316,8 +318,7 @@ internal sealed class WarpContainer : RectangularMenuObject
         RemoveStats();
         if (show)
         {
-            _stats = AddStats();
-            _stats.Show(RegionStats.Of(RegionCatalog.Get(WarpState.SelectedRegion).Rooms));
+            ShowStats();
         }
         ApplyLayout();
         menu.PlaySound(SoundID.MENU_Button_Standard_Button_Pressed);
@@ -350,7 +351,7 @@ internal sealed class WarpContainer : RectangularMenuObject
     private void ToggleRegionList()
     {
         bool toDropdown = !_picker.DropdownMode;
-        bool flipOrder = !toDropdown && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
+        bool flipOrder = !toDropdown && UiInput.ShiftHeld;
         WarpState.UpdatePreferences(p => p with
         {
             DropdownMode = toDropdown,
@@ -381,10 +382,6 @@ internal sealed class WarpContainer : RectangularMenuObject
     {
         this.RemoveAll([_editor]);
         _editor = null;
-        if (WarpState.Preferences.ShowStats)
-        {
-            _stats = AddStats();
-        }
         Refresh();
     }
 }

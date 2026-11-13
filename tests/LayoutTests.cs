@@ -24,8 +24,8 @@ internal static class LayoutTests
     {
         var layout = RoomGridLayout.Compute(Rooms(3), Grouping.Type, 1000f, 700f);
         CheckSequence("a column runs down from the top right",
-            [(920f, 620f), (920f, 590f), (920f, 560f)], layout.Buttons.Select(b => (b.X, b.Y)));
-        CheckSequence("the heading sits above the column", [(950f, 655f)], layout.Labels.Select(l => (l.X, l.Y)));
+            [(920f, 620f), (920f, 590f), (920f, 560f)], layout.Buttons.Select(b => (b.Spot.X, b.Spot.Y)));
+        CheckSequence("the heading sits above the column", [(950f, 655f)], layout.Labels.Select(l => (l.Spot.X, l.Spot.Y)));
         CheckSequence("buttons point back at their rooms", [0, 1, 2], layout.Buttons.Select(b => b.RoomIndex));
         Check("a short list needs no second page", !layout.HasSecondPage);
 
@@ -38,15 +38,15 @@ internal static class LayoutTests
         RoomInfo[] rooms = [.. Rooms(2), .. Rooms(1, RoomType.Shelter, "SU_S")];
         var layout = RoomGridLayout.Compute(rooms, Grouping.Type, 1000f, 700f);
         CheckSequence("a new group starts a new column, pulled in by 5",
-            [(920f, 620f), (920f, 590f), (850f, 620f)], layout.Buttons.Select(b => (b.X, b.Y)));
+            [(920f, 620f), (920f, 590f), (850f, 620f)], layout.Buttons.Select(b => (b.Spot.X, b.Spot.Y)));
         CheckSequence("each group gets a heading with its key",
             [((int)RoomType.Room, 950f), ((int)RoomType.Shelter, 880f)],
-            layout.Labels.Select(l => (l.GroupKey, l.X)));
+            layout.Labels.Select(l => (l.GroupKey, l.Spot.X)));
 
         var tall = RoomGridLayout.Compute(Rooms(22), Grouping.Type, 1000f, 700f);
-        CheckEqual("21 buttons fill a column", (920f, 20), (tall.Buttons[0].X, (int)((620f - tall.Buttons[20].Y) / 30f)));
+        CheckEqual("21 buttons fill a column", (920f, 20), (tall.Buttons[0].Spot.X, (int)((620f - tall.Buttons[20].Spot.Y) / 30f)));
         CheckEqual("the 22nd starts the next column, pulled in by 10", (855f, 620f),
-            (tall.Buttons[21].X, tall.Buttons[21].Y));
+            (tall.Buttons[21].Spot.X, tall.Buttons[21].Spot.Y));
 
         // A group that fills its column exactly leaves the next group at the top of a fresh column, which only the
         // subregion grouping nudges out by 5
@@ -57,19 +57,19 @@ internal static class LayoutTests
         ];
         var bySubregion = RoomGridLayout.Compute(afterFullColumn, Grouping.Subregion, 1000f, 700f);
         CheckEqual("after a full column, subregions nudge the next group out by 5", (880f, 850f),
-            (bySubregion.Labels[1].X, bySubregion.Buttons[21].X));
+            (bySubregion.Labels[1].Spot.X, bySubregion.Buttons[21].Spot.X));
         var byType = RoomGridLayout.Compute(afterFullColumn, Grouping.Type, 1000f, 700f);
-        CheckEqual("and the other groupings do not", (885f, 855f), (byType.Labels[1].X, byType.Buttons[21].X));
+        CheckEqual("and the other groupings do not", (885f, 855f), (byType.Labels[1].Spot.X, byType.Buttons[21].Spot.X));
     }
 
     private static void GridPageTests()
     {
         var layout = RoomGridLayout.Compute(Rooms(21 * 11 + 1), Grouping.Type, 1000f, 700f);
         Check("a long list needs a second page", layout.HasSecondPage);
-        CheckEqual("the first button is on the first page", 0, layout.Buttons.First().Page);
-        CheckEqual("the last, past the left limit, is on the second", 1, layout.Buttons.Last().Page);
+        CheckEqual("the first button is on the first page", 0, layout.Buttons.First().Spot.Page);
+        CheckEqual("the last, past the left limit, is on the second", 1, layout.Buttons.Last().Spot.Page);
         Check("pages split where the grid reaches the control panel",
-            layout.Buttons.All(b => b.Page == (b.X < RoomGridLayout.PageEdge ? 1 : 0)));
+            layout.Buttons.All(b => b.Spot.Page == (b.Spot.X < RoomGridLayout.PageEdge ? 1 : 0)));
 
         CheckEqual("page 0 shows where it was laid out", 0f, RoomGridLayout.ShiftFor(0, 0));
         CheckEqual("page 1 is off to the left while page 0 shows", -2000f, RoomGridLayout.ShiftFor(1, 0));

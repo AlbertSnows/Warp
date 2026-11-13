@@ -25,8 +25,7 @@ internal static class PauseMenuGlue
             return;
         }
         WarpState.EnsureLoaded();
-        WarpState.EndWarp();
-        Switching.WarpDriver.Cancel();
+        Switching.WarpDriver.End();
         RoomListScan.Reset();
     }
 
@@ -56,7 +55,7 @@ internal static class PauseMenuGlue
         {
             container = new WarpContainer(menu, page, page.pos + new Vector2(20f, show ? 0f : UiLayout.OffScreenY));
             toggle = new WarpButton(menu, page, "", WarpSignals.Toggle,
-                new Vector2(41f, game.rainWorld.options.ScreenSize.y - 72f), new Vector2(45f, 20f), Color.red);
+                new Vector2(41f, UiLayout.Screen(game.rainWorld).y - 72f), new Vector2(45f, 20f), Color.red);
         }
         catch
         {
@@ -91,7 +90,7 @@ internal static class PauseMenuGlue
     /// <summary>Handles signals sent to the pause menu: the toggle button and the room buttons.</summary>
     public static void Signal(PauseMenu menu, RainWorldGame game, MenuObject sender, string message)
     {
-        if (message == "CONTINUE")
+        if (message == PauseMenuActions.ContinueSignal)
         {
             RoomPreviewDialog.Current?.RemoveSprites();
         }
@@ -119,15 +118,13 @@ internal static class PauseMenuGlue
     /// </summary>
     private static void ChooseRoom(PauseMenu menu, string room)
     {
-        if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
+        if (UiInput.ShiftHeld)
         {
             WarpState.SetDenPosition(room);
             menu.PlaySound(SoundID.MENU_Player_Join_Game);
             return;
         }
-        WarpState.RequestWarp(new WarpRequest(WarpState.SelectedRegion, room));
-        WarpLog.Info("Room warp initiated for: " + room);
-        menu.Singal(null, "CONTINUE");
+        PauseMenuActions.StartWarp(menu, new WarpRequest(WarpState.SelectedRegion, room));
     }
 
     /// <summary>

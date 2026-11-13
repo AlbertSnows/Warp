@@ -25,9 +25,17 @@ public class WarpMod : BaseUnityPlugin
 {
     private bool _initialized;
 
-    public void OnEnable() => On.RainWorld.OnModsInit += RainWorldOnModsInit;
+    public void OnEnable()
+    {
+        WarpLog.Initialize(Logger);
+        On.RainWorld.OnModsInit += RainWorldOnModsInit;
+    }
 
-    /// <summary> Sets Warp up once the game has loaded its mods: installs the hooks and loads the sprites. </summary>
+    /// <summary>
+    /// Sets Warp up once the game has loaded its mods: installs the hooks and loads the sprites. A failure in either is
+    /// logged and does not reach the game's own mod start-up, which every mod after this one depends on. It is marked
+    /// done first, so a partly installed set of hooks is never installed a second time.
+    /// </summary>
     private void RainWorldOnModsInit(On.RainWorld.orig_OnModsInit orig, RainWorld self)
     {
         orig(self);
@@ -35,15 +43,15 @@ public class WarpMod : BaseUnityPlugin
         {
             return;
         }
+        _initialized = true;
         WarpHooks.Install();
         try
         {
-            Futile.atlasManager.LoadAtlas("sprites\\warpatlas");
+            Futile.atlasManager.LoadAtlas("sprites/warpatlas");
         }
         catch (Exception error)
         {
             WarpLog.Exception("loading the Warp sprites", error);
         }
-        _initialized = true;
     }
 }

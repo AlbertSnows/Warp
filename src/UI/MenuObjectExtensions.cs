@@ -25,6 +25,9 @@ internal static class MenuObjectExtensions
         }
     }
 
+    /// <summary> Whether the pointer is on the button, or it is selected with the keyboard or a controller. </summary>
+    public static bool IsHot(this ButtonTemplate button) => button.Selected || button.IsMouseOverMe;
+
     /// <summary> Moves a control to a place at once, without it sliding there over the next frames. </summary>
     public static void MoveTo(this RectangularMenuObject item, Vector2 pos)
     {

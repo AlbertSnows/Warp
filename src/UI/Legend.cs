@@ -69,7 +69,7 @@ internal sealed class Legend : RectangularMenuObject
         foreach ((string text, Hsl color) in KeyEntries(region, view, palette))
         {
             MenuLabel entry = AddLabel(text, 25f);
-            entry.label.color = UiColors.ToColor(color);
+            entry.label.color = HslColors.ToColor(color);
             _keyEntries.Add(entry);
         }
         if (_keyIsRow)
@@ -94,7 +94,7 @@ internal sealed class Legend : RectangularMenuObject
         for (int i = 0; i < region.SubregionNames.Length; i++)
         {
             MenuLabel entry = AddLabel(i + " - " + region.SubregionNames[i], 25f);
-            entry.label.color = UiColors.ToColor(ColorPalette.DefaultSubregion(i));
+            entry.label.color = HslColors.ToColor(ColorPalette.DefaultSubregion(i));
             _subregionEntries.Add(entry);
         }
     }

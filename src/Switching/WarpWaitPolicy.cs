@@ -38,9 +38,6 @@ internal enum WarpWaitAction
 /// </summary>
 internal static class WarpWaitPolicy
 {
-    /// <summary> How long a warp may wait before it gives up. A room normally takes a second or two. </summary>
-    public const float DefaultTimeoutSeconds = 60f;
-
     /// <summary>
     /// What to do on this frame. A warp that no longer applies is dropped first. Work that is ready counts as done even
     /// if the time is also up, so a room that becomes ready on the last frame is still used.

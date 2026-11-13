@@ -75,6 +75,18 @@ internal static class DataTests
         CheckEqual("and sets the color", new Hsl(0.1f, 0.2f, 0.3f), recolored.Subregion("SU", 6));
         CheckEqual("the earlier list is unchanged", 4, grown.Subregions["SU"].Count);
 
+        var mark = new Hsl(0.9f, 0.8f, 0.7f);
+        foreach (Grouping category in Groupings.All)
+        {
+            ColorPalette set = recolored.WithColor(category, "SU", 1, mark);
+            CheckEqual("a color set in " + category + " reads back", mark, set.ColorAt(category, "SU", 1));
+            Check("and leaves the original alone", set.ColorAt(category, "SU", 1) != recolored.ColorAt(category, "SU", 1));
+        }
+        CheckEqual("the type count is the table's", ColorPalette.TypeCount, palette.CountIn(Grouping.Type, "SU"));
+        CheckEqual("the size count is the table's", ColorPalette.SizeCount, palette.CountIn(Grouping.Size, "SU"));
+        CheckEqual("a region without colors has no subregion swatches", 0, palette.CountIn(Grouping.Subregion, "SU"));
+        CheckEqual("a region with colors counts them", 7, recolored.CountIn(Grouping.Subregion, "SU"));
+
         Hsl deep = ColorPalette.DefaultSubregion(40);
         CheckEqual("defaults past the table are always the same", deep, ColorPalette.DefaultSubregion(40));
         Check("and a valid color", deep.Hue is >= 0f and < 1f);
@@ -269,7 +281,6 @@ internal static class DataTests
             RoomTypes.All.Select((info, i) => info.Type == (RoomType)i).All(matches => matches));
         CheckEqual("every type can be looked up", true, types.All(type => RoomTypes.Of(type).Type == type));
         CheckEqual("headings are not repeated", RoomTypes.All.Count, RoomTypes.All.Select(info => info.Heading).Distinct().Count());
-        CheckEqual("the palette has a color for each type", RoomTypes.All.Count, ColorPalette.TypeCount);
 
         foreach (RoomTypeInfo info in RoomTypes.All.Where(info => info.WorldTag.Length > 0))
         {

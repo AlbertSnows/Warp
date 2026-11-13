@@ -2,7 +2,9 @@
 
 The code is under the Mozilla Public License 2.0; see [LICENSE](LICENSE).
 
-Warp For Meadow is a fork of [Warp Menu](https://github.com/LeeMoriya/Warp) by LeeMoriya. It keeps the menu and reworks the code underneath, and it loads regions without freezing the game so it can be used with Rain Meadow.
+Warp For Meadow is a fork of [Warp Menu](https://github.com/LeeMoriya/Warp) by LeeMoriya. It keeps the menu and reworks the code underneath.
+
+**Rain Meadow.** This mod fixes one thing there: a warp to another region used to freeze the game for good under a Meadow lobby, because the region was loaded in a loop that held the game still while Meadow waited for its network to be processed. Regions now load a step each frame, so the game keeps running and Meadow keeps working. It does not do Meadow's own handling of a region change (leaving the old region's session, fixing up avatars and carried items), and warping with other players in the lobby is untested. [MeadowWarpFix](https://github.com/AlbertSnows/meadow-warp-fix) pumps Meadow's network inside the original Warp's blocking loop, and this mod has no blocking loop, so it should not be needed with this mod. That combination has not been tested; if you have both, try without MeadowWarpFix first.
 
 Warp is a utility mod for Rain World that allows you to teleport the player to any room in the game, most common uses are to help with the creation of Custom Regions or testing in-development mods.
 

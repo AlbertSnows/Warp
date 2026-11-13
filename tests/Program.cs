@@ -8,6 +8,7 @@ internal static class Program
         TranslationTests.Run();
         SwitchPolicyTests.Run();
         WarpWaitPolicyTests.Run();
+        StagedTests.Run();
         RegionFilesTests.Run();
         LayoutTests.Run();
         DataTests.Run();

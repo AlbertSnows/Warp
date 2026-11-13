@@ -87,6 +87,8 @@ internal static class RegionFilesTests
         CheckSequence("names follow the label for none, in file order", ["None", "Filtration", "Dry Zone"], names);
         CheckSequence("a file with no subregions has only the label",
             ["None"], RegionFiles.ParseSubregionNames(["x: y"], "None", SpaceAfterColon));
+        CheckSequence("no properties file at all gives just the label", ["None"],
+            RegionFiles.ParseSubregionNames([], "None", SpaceAfterColon));
     }
 
     private static void MapTests()

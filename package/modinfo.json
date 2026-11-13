@@ -4,7 +4,7 @@
 	"version": "$VERSION$",
 	"target_game_version": "v1.11.8",
 	"authors": "LeeMoriya, AJ_Snow",
-	"description": "A utility for quickly teleporting to new rooms and regions via the Pause Menu. A fork of Warp Menu by LeeMoriya that loads other regions without freezing the game, so it can be used with Rain Meadow.",
+	"description": "A utility for quickly teleporting to new rooms and regions via the Pause Menu. A fork of Warp Menu by LeeMoriya that loads other regions without freezing the game, which fixes the freeze under Rain Meadow. It adds no other Rain Meadow support.",
 	"requirements": [],
 	"requirements_names": [],
 	"checksum_override_version": true

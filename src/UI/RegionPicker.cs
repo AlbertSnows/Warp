@@ -37,7 +37,7 @@ internal sealed class RegionPicker : RectangularMenuObject
         var tabs = new MenuTabWrapper(menu, this);
         subObjects.Add(tabs);
 
-        float height = game.rainWorld.options.ScreenSize.y;
+        float height = UiLayout.Screen(game.rainWorld).y;
         _dropdown = new OpComboBox(new Configurable<string>(selectedRegion),
             new Vector2(0f, LeftPanelLayout.DropdownYFor(height)), 150f, DropdownItems())
         {
@@ -45,7 +45,7 @@ internal sealed class RegionPicker : RectangularMenuObject
         };
         _dropdown.OnListOpen += _ => SetOpen(true);
         _dropdown.OnListClose += _ => SetOpen(false);
-        _dropdown.OnValueChanged += (_, value, _) => Choose(value, reload: ShiftHeld);
+        _dropdown.OnValueChanged += (_, value, _) => Choose(value, reload: UiInput.ShiftHeld);
         _ = new UIelementWrapper(tabs, _dropdown);
         DropdownMode = true;
     }
@@ -71,9 +71,7 @@ internal sealed class RegionPicker : RectangularMenuObject
     public int ButtonCount => _buttons.Count;
 
     /// <summary> Whether the pointer is on a region button or one is selected. </summary>
-    public bool IsHot => _buttons.Any(button => button.Selected || button.IsMouseOverMe);
-
-    private static bool ShiftHeld => Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+    public bool IsHot => _buttons.Any(button => button.IsHot());
 
     /// <summary>
     /// Remembers that the dropdown list opened or closed, and tells the container, which moves the controls under
@@ -216,6 +214,6 @@ internal sealed class RegionPicker : RectangularMenuObject
 
         // Handled here, so it goes no further than this
         menu.PlaySound(SoundID.MENU_Button_Standard_Button_Pressed);
-        Choose(region, reload: ShiftHeld);
+        Choose(region, reload: UiInput.ShiftHeld);
     }
 }

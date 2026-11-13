@@ -1,11 +1,10 @@
 namespace Warp.Switching;
 
 /// <summary>
-/// Where a region switch is. A switch moves through these in order and ends back at Idle.
+/// Where a region switch is. A switch moves through these in order. A switch that is not running has no stage; it is no switch at all.
 /// </summary>
 internal enum SwitchStage
 {
-    Idle,
     LoadingWorld,
     PreparingRoom
 }
@@ -22,11 +21,6 @@ internal enum SwitchStage
 /// </param>
 internal readonly record struct SwitchState(SwitchStage Stage, float StartTime, int StartFrame, float StageStartTime)
 {
-    /// <summary>
-    /// The state of a switch that is not running.
-    /// </summary>
-    public static readonly SwitchState Idle = new(SwitchStage.Idle, 0f, 0, 0f);
-
     /// <summary>
     /// A switch that has just started loading its world, at this time and frame.
     /// </summary>

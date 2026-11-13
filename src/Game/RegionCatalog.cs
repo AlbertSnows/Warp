@@ -50,7 +50,7 @@ internal static class RegionCatalog
         string[] names = ReadSubregionNames(region);
         Dictionary<string, int> subregions = ReadSubregions(region, names);
 
-        RoomInfo[] finished = [.. rooms.Select(room => WithDetails(room, region, subregions))];
+        RoomInfo[] finished = [.. rooms.Select(room => WithDetails(room, subregions))];
         return new RegionData(region, RoomSorting.Sort(finished, Grouping.Type), names);
     }
 
@@ -60,7 +60,7 @@ internal static class RegionCatalog
     private static string[] ReadSubregionNames(string region)
     {
         string[] lines = WarpFiles.TryReadLines(AssetManager.ResolveFilePath($"world/{region}/properties.txt"));
-        return lines == null ? [RegionData.NoSubregion] : RegionFiles.ParseSubregionNames(lines, Translator.Translate("None"), SpaceAfterColon);
+        return RegionFiles.ParseSubregionNames(lines ?? [], Translator.Translate(RegionData.NoSubregion), SpaceAfterColon);
     }
 
     /// <summary>
@@ -69,17 +69,15 @@ internal static class RegionCatalog
     private static Dictionary<string, int> ReadSubregions(string region, string[] names)
     {
         string[] lines = WarpFiles.TryReadLines(AssetManager.ResolveFilePath($"world/{region}/map_{region}.txt"));
-        return lines == null
-            ? []
-            : RegionFiles.ParseMapSubregions(lines, names, SpaceAfterColon);
+        return RegionFiles.ParseMapSubregions(lines ?? [], names, SpaceAfterColon);
     }
 
     /// <summary> The room with its camera count and subregion filled in from the files that describe them. </summary>
-    private static RoomInfo WithDetails(RoomInfo room, string region, Dictionary<string, int> subregions)
+    private static RoomInfo WithDetails(RoomInfo room, Dictionary<string, int> subregions)
     {
         RoomInfo withCameras = room with
         {
-            Cameras = ReadCameras(room.Name, region) ?? 1
+            Cameras = ReadCameras(room.Name) ?? 1
         };
         return subregions.TryGetValue(room.Name, out int subregion)
             ? withCameras with
@@ -89,24 +87,12 @@ internal static class RegionCatalog
             : withCameras;
     }
 
-    /// <summary>
-    /// A room's camera count from its own file, which is a room of the region, a standalone level or a gate.
-    /// </summary>
-    private static int? ReadCameras(string room, string region)
+    /// <summary>A room's camera count from its own file, or null if the room has no readable file.</summary>
+    private static int? ReadCameras(string room)
     {
-        string[] paths =
-        [
-            $"world/{region}-rooms/{room}.txt", $"levels/{room}.txt", $"world/gates/{room}.txt"
-        ];
-        foreach (string path in paths)
-        {
-            string[] lines = WarpFiles.TryReadLines(AssetManager.ResolveFilePath(path));
-            if (lines != null)
-            {
-                return RegionFiles.CameraCount(lines);
-            }
-        }
-        return null;
+        return RoomFiles.Find(room) is { } path && WarpFiles.TryReadLines(path) is { } lines
+            ? RegionFiles.CameraCount(lines)
+            : null;
     }
 
     /// <summary> Puts the space the files expect after a colon, using the game's own function. </summary>

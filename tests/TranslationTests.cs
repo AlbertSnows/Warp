@@ -24,10 +24,7 @@ internal static class TranslationTests
     /// </summary>
     private static readonly string[] _conflictsToSettle = ["SWARM"];
 
-    public static void Run()
-    {
-        Group(nameof(KeyTests), KeyTests);
-    }
+    public static void Run() => Group(nameof(KeyTests), KeyTests);
 
     internal static string? FindRepositoryRoot()
     {

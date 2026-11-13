@@ -1,25 +1,13 @@
+using System;
 using Warp.Util;
 
 namespace Warp.Switching;
 
-/// <summary>
-/// The part of a warp that was being done, kept up to date as the warp runs so that a failure can say where it
-/// happened.
-/// </summary>
-internal enum WarpStage
-{
-    LoadWorld,
-    AbstractRoom,
-    RealiseRoom,
-    RoomRealiser,
-    FindNode,
-    MovePlayer,
-    MoveObjects,
-    MoveCamera
-}
-
+/// <summary>The text shown to the player when a warp fails, for the stage it failed in.</summary>
 internal static class WarpStageText
 {
+    private const string UnknownError = "I have no idea how you got this error";
+
     /// <summary>What to tell the player when a warp fails during this stage.</summary>
     public static string ErrorText(WarpStage stage)
     {
@@ -33,7 +21,18 @@ internal static class WarpStageText
             WarpStage.MovePlayer => "An error occurred while moving the player to the new region",
             WarpStage.MoveObjects => "An error occurred while moving the player's items",
             WarpStage.MoveCamera => "An error occurred while moving the RoomCamera to the new room",
-            _ => "I have no idea how you got this error"
+            _ => UnknownError
         });
+    }
+
+    /// <summary>
+    /// What to tell the player about a failure: the text for the stage it carries, or the general one for a failure that
+    /// was not run as a stage.
+    /// </summary>
+    public static string ErrorTextFor(Exception error)
+    {
+        return error is WarpStageException staged
+            ? ErrorText(staged.Stage)
+            : Translator.Translate(UnknownError);
     }
 }

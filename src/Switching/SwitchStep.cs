@@ -25,10 +25,6 @@ internal readonly record struct SwitchFacts(
 internal enum SwitchAction
 {
     /// <summary>
-    /// Nothing is going on
-    /// </summary>
-    None,
-    /// <summary>
     /// Keep waiting, nothing to do this frame
     /// </summary>
     Wait,

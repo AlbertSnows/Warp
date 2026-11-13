@@ -13,18 +13,15 @@ namespace Warp.Switching;
 /// not by a gate. The destination room has to be realized and
 /// prepared already; see SwitchStepper.
 /// </summary>
-internal sealed class PlayerTransfer
+internal static class PlayerTransfer
 {
     private static readonly MethodInfo _killPlayerGuideInNewWorld =
         typeof(OverWorld).GetMethod("KillPlayerGuideInNewWorld", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
-    /// <summary>The step the transfer is at, so a failure can say what it was doing.</summary>
-    public WarpStage Stage { get; set; } = WarpStage.LoadWorld;
-
     /// <summary>
     /// Moves all the players, with what they carry, into the new world and room, then points the camera at it.
     /// </summary>
-    public void Run(RainWorldGame game, World oldWorld, World newWorld, AbstractRoom newRoom, TileCoord? tile)
+    public static void Run(RainWorldGame game, World oldWorld, World newWorld, AbstractRoom newRoom, TileCoord? tile)
     {
         try
         {
@@ -61,43 +58,41 @@ internal sealed class PlayerTransfer
         }
     }
 
-    private void Transfer(RainWorldGame game, World oldWorld, World newWorld, AbstractRoom newRoom, TileCoord? tile)
+    private static void Transfer(RainWorldGame game, World oldWorld, World newWorld, AbstractRoom newRoom, TileCoord? tile)
     {
-        AdoptWorld(game, newWorld);
+        Staged.Run(WarpStage.MovePlayer, () => AdoptWorld(game, newWorld));
+        int entranceNode = Staged.Run(WarpStage.FindNode, () => FindEntranceNode(newRoom));
+        Staged.Run(WarpStage.MovePlayer, () => ClearHud(game));
 
-        Stage = WarpStage.FindNode;
-        int entranceNode = FindEntranceNode(newRoom);
-
-        ClearHud(game);
         List<AbstractCreature> players = game.AlivePlayers;
-        for (int i = 0; i < players.Count; i++)
+        foreach (AbstractCreature player in players)
         {
-            Stage = WarpStage.MovePlayer;
-            MovePlayer(game, players[i], newWorld, newRoom, entranceNode, tile, first: i == 0);
-            WarpLog.Info("Player " + i + " moved to the new region");
+            bool first = ReferenceEquals(player, players[0]);
+            Staged.Run(WarpStage.MovePlayer, () => MovePlayer(game, player, newWorld, newRoom, entranceNode, tile, first));
+            WarpLog.Info("Player " + players.IndexOf(player) + " moved to the new region");
         }
 
-        DropVesselsOutsideRegion(game);
-
-        Stage = WarpStage.MoveCamera;
-        RefocusCamera(game, newWorld, newRoom);
-        CarryOverRegionState(oldWorld, newWorld, newRoom);
+        Staged.Run(WarpStage.MoveObjects, () => DropVesselsOutsideRegion(game));
+        Staged.Run(WarpStage.MoveCamera, () =>
+        {
+            RefocusCamera(game, newWorld, newRoom);
+            CarryOverRegionState(oldWorld, newWorld, newRoom);
+        });
     }
 
     /// <summary> Makes the new world the one the game is running. </summary>
     private static void AdoptWorld(RainWorldGame game, World newWorld)
     {
-        if (game.roomRealizer != null)
-        {
-            game.roomRealizer = new RoomRealizer(game.roomRealizer.followCreature, newWorld);
-        }
+        game.roomRealizer = new RoomRealizer(game.roomRealizer.followCreature, newWorld);
         game.overWorld.activeWorld = newWorld;
     }
 
     /// <summary>
     /// The first node of the room that is an exit with a connection, which is where creatures are put when no spot
     /// was chosen. Node 0 if there is none. The position set from it is replaced when the player is moved, so it only
-    /// matters for what is carried along before that; kept as upstream Warp has it.
+    /// matters for what is carried along before that: the items the player holds copy the player's position, node included,
+    /// before <c>Move</c> gives the player its final one. Whether anything reads an item's node is not known, which is why
+    /// the node is still set.
     /// </summary>
     private static int FindEntranceNode(AbstractRoom room)
     {
@@ -130,7 +125,7 @@ internal sealed class PlayerTransfer
     /// Moves one player and everything attached to it into the new room. The first player also becomes the one the
     /// room realizer follows.
     /// </summary>
-    private void MovePlayer(
+    private static void MovePlayer(
         RainWorldGame game, AbstractCreature abstractPlayer, World newWorld, AbstractRoom newRoom, int entranceNode,
         TileCoord? tile, bool first)
     {
@@ -175,20 +170,25 @@ internal sealed class PlayerTransfer
                 carried.Select(item => item.realizedObject).Where(item => item != null));
         }
 
-        Stage = WarpStage.MoveObjects;
-        RestoreBackSpear(player, backSpear);
-        if (stomachObject != null && player.objectInStomach == null)
+        Staged.Run(WarpStage.MoveObjects, () =>
         {
-            player.objectInStomach = stomachObject;
-        }
-        RestartCreatureAi(game, abstractPlayer, newWorld, newRoom);
-        if (first)
-        {
-            newRoom.world.game.roomRealizer.followCreature = abstractPlayer;
-        }
+            RestoreBackSpear(player, backSpear);
+            if (stomachObject != null && player.objectInStomach == null)
+            {
+                player.objectInStomach = stomachObject;
+            }
+            RestartCreatureAi(game, abstractPlayer, newWorld, newRoom);
+            if (first)
+            {
+                game.roomRealizer.followCreature = abstractPlayer;
+            }
+        });
     }
 
-    /// <summary>Everything the player holds or is stuck to moves to the new world and room with them.</summary>
+    /// <summary>
+    /// Everything the player holds or is stuck to moves to the new world and room with them. The old world is
+    /// abandoned, so its room lists are not cleaned: the items stay listed in the old room, which nothing reads again.
+    /// </summary>
     private static void MoveCarriedObjects(
         AbstractCreature player, List<AbstractPhysicalObject> carried, World newWorld, AbstractRoom newRoom)
     {
@@ -196,7 +196,6 @@ internal sealed class PlayerTransfer
         {
             item.world = newWorld;
             item.pos = player.pos;
-            item.Room.RemoveEntity(item);
             newRoom.AddEntity(item);
             if (item.realizedObject != null)
             {

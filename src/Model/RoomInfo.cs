@@ -43,7 +43,7 @@ internal sealed record RoomInfo(
 }
 
 /// <summary>
-/// Everything known about one region: its rooms, in the order they were read, and its subregion names. Index 0 of
+/// Everything known about one region: its rooms, sorted by type and then name, and its subregion names. Index 0 of
 /// the names is the label for "no subregion".
 /// </summary>
 internal sealed record RegionData(string Region, RoomInfo[] Rooms, string[] SubregionNames)

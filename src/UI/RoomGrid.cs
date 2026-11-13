@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Menu;
 using UnityEngine;
+using Warp.Game;
 using Warp.Model;
 using Warp.Util;
 
@@ -28,7 +29,7 @@ internal sealed class RoomGrid(Menu.Menu menu, MenuObject owner, RainWorldGame g
     private sealed record HeadingRow(MenuLabel Label, PlacedLabel Placed);
 
     /// <summary>Whether the pointer is over a room button or one is selected.</summary>
-    public bool IsHot => _buttonRows.Any(row => row.Button.Selected || row.Button.IsMouseOverMe);
+    public bool IsHot => _buttonRows.Any(row => row.Button.IsHot());
 
     /// <summary>The name of the room whose button the pointer is over, or null.</summary>
     public string HoveredRoom => _buttonRows.FirstOrDefault(row => row.Button.IsMouseOverMe)?.Room;
@@ -39,15 +40,15 @@ internal sealed class RoomGrid(Menu.Menu menu, MenuObject owner, RainWorldGame g
         Clear();
         _region = region.Region;
         RoomInfo[] rooms = RoomSorting.Sort(region.Rooms, sort);
-        float width = game.rainWorld.options.ScreenSize.x - 20f;
-        float height = game.rainWorld.options.ScreenSize.y;
+        float width = UiLayout.Screen(game.rainWorld).x - 20f;
+        float height = UiLayout.Screen(game.rainWorld).y;
         var layout = RoomGridLayout.Compute(rooms, sort, width, height);
 
         foreach (PlacedButton placed in layout.Buttons)
         {
             RoomInfo room = rooms[placed.RoomIndex];
             var button = new WarpButton(menu, this, room.ShortName, WarpSignals.ForRoom(room.Name), Vector2.zero,
-                new Vector2(60f, 25f), UiColors.ToColor(palette.For(room, view, region.Region)));
+                new Vector2(60f, 25f), HslColors.ToColor(palette.For(room, view, region.Region)));
             _buttonRows.Add(new ButtonRow(button, placed, room.Name));
             subObjects.Add(button);
         }
@@ -119,13 +120,14 @@ internal sealed class RoomGrid(Menu.Menu menu, MenuObject owner, RainWorldGame g
     /// <summary>Slides the columns of the chosen page into view and the other page out of it.</summary>
     private void ShowPage(int selectedPage)
     {
-        foreach (ButtonRow row in _buttonRows)
+        IEnumerable<(RectangularMenuObject Item, GridSpot Spot)> placed =
+        [
+            .. _buttonRows.Select(row => ((RectangularMenuObject)row.Button, row.Placed.Spot)),
+            .. _headingRows.Select(row => ((RectangularMenuObject)row.Label, row.Placed.Spot))
+        ];
+        foreach ((RectangularMenuObject item, GridSpot spot) in placed)
         {
-            row.Button.MoveTo(new Vector2(row.Placed.X + RoomGridLayout.ShiftFor(row.Placed.Page, selectedPage), row.Placed.Y));
-        }
-        foreach (HeadingRow row in _headingRows)
-        {
-            row.Label.MoveTo(new Vector2(row.Placed.X + RoomGridLayout.ShiftFor(row.Placed.Page, selectedPage), row.Placed.Y));
+            item.MoveTo(new Vector2(spot.X + RoomGridLayout.ShiftFor(spot.Page, selectedPage), spot.Y));
         }
 
         if (_pageLeft == null)

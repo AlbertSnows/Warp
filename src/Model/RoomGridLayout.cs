@@ -4,11 +4,21 @@ using System.Linq;
 
 namespace Warp.Model;
 
-/// <summary>A room button's place in the grid. Page 1 holds the columns that would not fit on screen.</summary>
-internal readonly record struct PlacedButton(int RoomIndex, float X, float Y, int Page);
+/// <summary>
+/// A place in the grid. Page 1 holds the columns that would not fit on screen: a spot further left than
+/// <see cref="RoomGridLayout.PageEdge"/> is on it.
+/// </summary>
+internal readonly record struct GridSpot(float X, float Y, int Page)
+{
+    /// <summary> The spot at this position, with the page its position puts it on. </summary>
+    public static GridSpot At(float x, float y) => new(x, y, x < RoomGridLayout.PageEdge ? 1 : 0);
+}
+
+/// <summary>A room button's place in the grid.</summary>
+internal readonly record struct PlacedButton(int RoomIndex, GridSpot Spot);
 
 /// <summary>The heading above a run of rooms that share a group, such as "SHELTER" or "SUB 2".</summary>
-internal readonly record struct PlacedLabel(int GroupKey, float X, float Y, int Page);
+internal readonly record struct PlacedLabel(int GroupKey, GridSpot Spot);
 
 /// <summary>
 /// Where the room buttons and group headings go, worked out from the sorted rooms alone. The grid fills columns
@@ -22,7 +32,7 @@ internal sealed record RoomGridLayout(PlacedButton[] Buttons, PlacedLabel[] Labe
     {
         get
         {
-            return Buttons.Any(button => button.Page == 1);
+            return Buttons.Any(button => button.Spot.Page == 1);
         }
     }
 
@@ -72,12 +82,11 @@ internal sealed record RoomGridLayout(PlacedButton[] Buttons, PlacedLabel[] Labe
                     row = 0;
                 }
                 group = key;
-                labels.Add(Place(new PlacedLabel(key, screenWidth - (50f + shift) - ColumnWidth * column,
-                    screenHeight - LabelTop, 0)));
+                labels.Add(new PlacedLabel(key, GridSpot.At(screenWidth - (50f + shift) - ColumnWidth * column, screenHeight - LabelTop)));
             }
             float x = screenWidth - (80f + shift) - ColumnWidth * column;
             float y = screenHeight - ButtonTop - RowHeight * row;
-            buttons.Add(Place(new PlacedButton(i, x, y, 0)));
+            buttons.Add(new PlacedButton(i, GridSpot.At(x, y)));
             if (row < RowsPerColumn - 1)
             {
                 row++;
@@ -105,12 +114,6 @@ internal sealed record RoomGridLayout(PlacedButton[] Buttons, PlacedLabel[] Labe
         }
         return grouping == Grouping.Subregion ? (column, shift + 5f) : (column, shift);
     }
-
-    /// <summary> The button with the page its position puts it on. </summary>
-    private static PlacedButton Place(PlacedButton button) => button with { Page = button.X < PageEdge ? 1 : 0 };
-
-    /// <summary> The heading with the page its position puts it on. </summary>
-    private static PlacedLabel Place(PlacedLabel label) => label with { Page = label.X < PageEdge ? 1 : 0 };
 
     /// <summary>
     /// The horizontal shift that puts something on page <paramref name="itemPage"/> in the right place while

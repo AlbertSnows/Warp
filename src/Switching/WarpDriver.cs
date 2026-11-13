@@ -9,15 +9,14 @@ namespace Warp.Switching;
 
 /// <summary>
 /// Carries out the warp the player asked for. The game calls <see cref="Update"/> once a frame after its own world
-/// update. A warp inside the region the players are in is done by <see cref="_roomWarp"/>. A warp to another region
+/// update. A warp inside the region the players are in is done by <see cref="RoomWarp"/>. A warp to another region
 /// starts a <see cref="SwitchStepper"/>, which loads the region a step at a time over the next frames. A failure is
-/// logged, shown to the player in the pause menu, and ends the warp.
+/// logged, shown to the player in the pause menu, and ends the warp. The whole warp is one <see cref="ActiveWarp"/>,
+/// or null when there is none.
 /// </summary>
 internal static class WarpDriver
 {
-    private static readonly RoomWarp _roomWarp = new();
-    private static SwitchStepper _regionSwitch;
-    private static float? _firstSeen;
+    private static ActiveWarp _active;
 
     /// <summary> Does one frame of work for the pending warp, if there is one. </summary>
     public static void Update(OverWorld overWorld)
@@ -25,23 +24,40 @@ internal static class WarpDriver
         WarpRequest request = WarpState.Pending;
         if (request == null)
         {
-            // A region switch only lives while a warp is requested, so one that is left over is dropped
-            Cancel();
+            // A warp only lives while one is requested, so one that is left over is dropped. Checked first because this
+            // runs every frame of a story session and there is usually nothing to drop
+            if (_active != null)
+            {
+                End();
+            }
             return;
         }
-        float now = Time.realtimeSinceStartup;
-        _firstSeen ??= now;
-        if (_regionSwitch != null)
+        // The one read of the game's clock this frame
+        var clock = new FrameClock(Time.realtimeSinceStartup, Time.frameCount);
+        if (_active == null || !ReferenceEquals(_active.Request, request))
         {
-            StepRegionSwitch(overWorld);
+            _active?.Switch?.Cancel();
+            _active = new ActiveWarp(request, clock.Now);
         }
-        else if (request.Region == overWorld.activeWorld.region.name)
+
+        try
         {
-            UpdateRoomWarp(overWorld, request, _firstSeen.Value);
+            if (_active.Switch != null)
+            {
+                StepRegionSwitch(overWorld, clock);
+            }
+            else if (request.Region == overWorld.activeWorld.region.name)
+            {
+                UpdateRoomWarp(overWorld, clock);
+            }
+            else
+            {
+                UpdateStart(overWorld, clock);
+            }
         }
-        else
+        catch (Exception error)
         {
-            UpdateStart(overWorld, request, _firstSeen.Value, now);
+            Fail(overWorld, error);
         }
     }
 
@@ -49,48 +65,34 @@ internal static class WarpDriver
     /// A warp inside the region. It is asked every frame, whether or not the players can move, because the policy it
     /// runs decides when to wait, to give up and to drop the request.
     /// </summary>
-    private static void UpdateRoomWarp(OverWorld overWorld, WarpRequest request, float firstSeen)
+    private static void UpdateRoomWarp(OverWorld overWorld, FrameClock clock)
     {
-        try
+        (ActiveWarp warp, bool done) = RoomWarp.Step(overWorld.game, _active, clock);
+        _active = warp;
+        if (done)
         {
-            if (_roomWarp.Update(overWorld, request, firstSeen))
-            {
-                End();
-            }
-        }
-        catch (Exception error)
-        {
-            _roomWarp.Finish();
-            Fail(overWorld, error, WarpStageText.ErrorText(_roomWarp.Stage));
+            End();
         }
     }
 
     /// <summary>
     /// A warp to another region that has not started. It waits until the players can move, and gives up after
-    /// <see cref="WarpWaitPolicy.DefaultTimeoutSeconds"/> or when none is alive, as <see cref="WarpWaitPolicy"/> decides,
-    /// with nothing else to wait for.
+    /// <see cref="WarpTimeout.Seconds"/> or when none is alive, as <see cref="WarpWaitPolicy"/> decides, with nothing else
+    /// to wait for.
     /// </summary>
-    private static void UpdateStart(OverWorld overWorld, WarpRequest request, float firstSeen, float now)
+    private static void UpdateStart(OverWorld overWorld, FrameClock clock)
     {
-        RainWorldGame game = overWorld.game;
-        var facts = new WarpWaitFacts(
-            StillApplies: game.AlivePlayers.Count > 0,
-            Ready: true,
-            PlayersCanMove: PlayerOps.PlayersCanMove(game),
-            Now: now);
-        switch (WarpWaitPolicy.Next(firstSeen, facts, WarpWaitPolicy.DefaultTimeoutSeconds))
+        WarpWaitFacts facts = PlayerOps.Facts(overWorld.game, ready: true, clock);
+        switch (WarpWaitPolicy.Next(_active.FirstSeen, facts, WarpTimeout.Seconds))
         {
             case WarpWaitAction.Go:
-                BeginRegionSwitch(overWorld, request);
+                BeginRegionSwitch(overWorld, clock);
                 break;
             case WarpWaitAction.Drop:
                 End();
                 break;
             case WarpWaitAction.TimedOut:
-                Fail(overWorld, new TimeoutException("The players could not move within "
-                                                     + WarpWaitPolicy.DefaultTimeoutSeconds + " seconds."),
-                    WarpStageText.ErrorText(WarpStage.MovePlayer));
-                break;
+                throw WarpTimeout.Exception(WarpStage.MovePlayer);
             case WarpWaitAction.Wait:
                 break;
             default:
@@ -99,74 +101,51 @@ internal static class WarpDriver
     }
 
     /// <summary>
-    /// Drops a warp that is part way through, for example because the pause menu was opened. Does nothing if none is
-    /// running.
+    /// Starts a warp to another region. The policy has already seen that there are players and that they can move, so
+    /// the stepper does not check again.
     /// </summary>
-    public static void Cancel()
-    {
-        _regionSwitch?.Cancel();
-        _regionSwitch = null;
-        _firstSeen = null;
-        _roomWarp.Finish();
-    }
-
-    /// <summary>
-    /// Starts a warp to another region. Having no player to move is not an error; there is simply nothing to do.
-    /// </summary>
-    private static void BeginRegionSwitch(OverWorld overWorld, WarpRequest request)
+    private static void BeginRegionSwitch(OverWorld overWorld, FrameClock clock)
     {
         WarpState.ClearError();
-        _regionSwitch = new SwitchStepper();
-        try
+        var stepper = new SwitchStepper();
+        stepper.BeginSwitch(overWorld.game, _active.Request, clock);
+        _active = _active with
         {
-            _regionSwitch.BeginSwitch(overWorld.game, request);
-            if (!_regionSwitch.Busy)
-            {
-                // There is no player to move, so there is nothing to switch
-                End();
-            }
-        }
-        catch (Exception error)
-        {
-            Fail(overWorld, error, _regionSwitch.ErrorText);
-        }
+            Switch = stepper
+        };
     }
 
     /// <summary>
     /// Moves the running region switch along by one frame. A switch left over from an earlier game is dropped.
     /// </summary>
-    private static void StepRegionSwitch(OverWorld overWorld)
+    private static void StepRegionSwitch(OverWorld overWorld, FrameClock clock)
     {
-        if (_regionSwitch.Game != overWorld.game)
+        if (_active.Switch.Game != overWorld.game)
         {
-            Cancel();
-            WarpState.EndWarp();
+            End();
             return;
         }
-        try
+        if (_active.Switch.Update(clock))
         {
-            if (_regionSwitch.Update())
-            {
-                End();
-            }
-        }
-        catch (Exception error)
-        {
-            Fail(overWorld, error, _regionSwitch.ErrorText);
+            End();
         }
     }
 
-    /// <summary> Ends the region switch and the request that started it. </summary>
-    private static void End()
+    /// <summary>
+    /// The one way to finish or abandon a warp, for example because the pause menu was opened: stops a region switch
+    /// that is part way through, drops the running warp and ends the request that started it. Safe when none is running.
+    /// </summary>
+    public static void End()
     {
-        _regionSwitch = null;
-        _firstSeen = null;
+        _active?.Switch?.Cancel();
+        _active = null;
         WarpState.EndWarp();
     }
 
     /// <summary> Reports a failed warp: logs it, shows the text in a new pause menu, and ends the warp. </summary>
-    private static void Fail(OverWorld overWorld, Exception error, string text)
+    private static void Fail(OverWorld overWorld, Exception error)
     {
+        string text = WarpStageText.ErrorTextFor(error);
         WarpLog.Exception("warping", error);
         WarpLog.Error(text);
         WarpState.ReportError(text);

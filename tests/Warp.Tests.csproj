@@ -21,6 +21,10 @@
     <Compile Include="../src/Switching/SwitchState.cs" />
     <Compile Include="../src/Switching/SwitchStep.cs" />
     <Compile Include="../src/Switching/SwitchPolicy.cs" />
+    <Compile Include="../src/Switching/WarpStage.cs" />
+    <Compile Include="../src/Switching/Staged.cs" />
+    <Compile Include="../src/Switching/WarpTimeout.cs" />
+    <Compile Include="../src/Switching/FrameClock.cs" />
     <Compile Include="../src/Switching/WarpWaitPolicy.cs" />
     <!-- The colors file that ships with Warp, so a test can check it still reads -->
     <None Include="../Resources/Colors.txt" Link="Colors.txt" CopyToOutputDirectory="PreserveNewest" />

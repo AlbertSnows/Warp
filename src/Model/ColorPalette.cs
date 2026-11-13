@@ -15,7 +15,7 @@ internal readonly record struct Hsl(float Hue, float Saturation, float Lightness
 internal sealed class ColorPalette
 {
     /// <summary> How many room types have a color. </summary>
-    public const int TypeCount = 6;
+    public static readonly int TypeCount = RoomTypes.All.Count;
     /// <summary> How many camera counts have a color. The last one is for that many cameras or more. </summary>
     public const int SizeCount = 9;
 
@@ -36,19 +36,18 @@ internal sealed class ColorPalette
         _types = [.. types];
         _sizes = [.. sizes];
         _subregions = subregions.ToDictionary(pair => pair.Key, pair => (Hsl[])pair.Value.Clone());
-        Subregions = _subregions.ToDictionary(pair => pair.Key, IReadOnlyList<Hsl> (pair) => pair.Value);
     }
 
     /// <summary> The colors Warp starts with, before any file or edit. </summary>
     public static readonly ColorPalette Default = new(
         [
-            new(0.33f, 0.99f, 0.67f), new(0.18f, 0.99f, 0.63f), new(0.51f, 0.99f, 0.61f),
-            new(0.73f, 0.99f, 0.76f), new(0.06f, 0.99f, 0.63f), new(0.99f, 0.99f, 0.66f)
+            new Hsl(0.33f, 0.99f, 0.67f), new Hsl(0.18f, 0.99f, 0.63f), new Hsl(0.51f, 0.99f, 0.61f),
+            new Hsl(0.73f, 0.99f, 0.76f), new Hsl(0.06f, 0.99f, 0.63f), new Hsl(0.99f, 0.99f, 0.66f)
         ],
         [
-            new(0.33f, 0.99f, 0.67f), new(0.18f, 0.99f, 0.68f), new(0.08f, 0.99f, 0.61f),
-            new(0f, 0.99f, 0.69f), new(0.82f, 0.99f, 0.73f), new(0.71f, 0.99f, 0.66f),
-            new(0.6f, 0.99f, 0.59f), new(0.54f, 0.99f, 0.65f), new(0.46f, 0.99f, 0.58f)
+            new Hsl(0.33f, 0.99f, 0.67f), new Hsl(0.18f, 0.99f, 0.68f), new Hsl(0.08f, 0.99f, 0.61f),
+            new Hsl(0f, 0.99f, 0.69f), new Hsl(0.82f, 0.99f, 0.73f), new Hsl(0.71f, 0.99f, 0.66f),
+            new Hsl(0.6f, 0.99f, 0.59f), new Hsl(0.54f, 0.99f, 0.65f), new Hsl(0.46f, 0.99f, 0.58f)
         ],
         new Dictionary<string, Hsl[]>());
 
@@ -91,11 +90,12 @@ internal sealed class ColorPalette
     /// <summary> The camera count colors, starting with one camera. </summary>
     public IReadOnlyList<Hsl> Sizes => _sizes;
 
-    /// <summary>The regions that have colors of their own, with those colors.</summary>
+    /// <summary>
+    /// The regions that have colors of their own, with those colors. Made when asked for, because the interface is not
+    /// covariant on the .NET Framework.
+    /// </summary>
     public IReadOnlyDictionary<string, IReadOnlyList<Hsl>> Subregions
-    {
-        get;
-    }
+        => _subregions.ToDictionary(pair => pair.Key, IReadOnlyList<Hsl> (pair) => pair.Value);
 
     /// <summary>
     /// The colors of a region's subregions, as many as asked for. Subregions the palette holds no color for yet get
@@ -143,7 +143,7 @@ internal sealed class ColorPalette
     }
 
     /// <summary> The palette with a region's whole subregion list replaced. </summary>
-    internal ColorPalette WithSubregions(string region, Hsl[] colors)
+    public ColorPalette WithSubregions(string region, Hsl[] colors)
     {
         var changed = new Dictionary<string, Hsl[]>(_subregions)
         {
@@ -151,6 +151,30 @@ internal sealed class ColorPalette
         };
         return new ColorPalette(_types, _sizes, changed);
     }
+
+    /// <summary>How many colors a category has: for subregions, those held for the region.</summary>
+    public int CountIn(Grouping category, string region) => category switch
+    {
+        Grouping.Type => TypeCount,
+        Grouping.Size => SizeCount,
+        _ => _subregions.TryGetValue(region, out Hsl[]? colors) ? colors.Length : 0
+    };
+
+    /// <summary>The color at an index of a category. For subregions, the region's own, or the default for the index.</summary>
+    public Hsl ColorAt(Grouping category, string region, int index) => category switch
+    {
+        Grouping.Type => Type((RoomType)index),
+        Grouping.Size => _sizes[index],
+        _ => Subregion(region, index)
+    };
+
+    /// <summary>The palette with the color at an index of a category changed.</summary>
+    public ColorPalette WithColor(Grouping category, string region, int index, Hsl color) => category switch
+    {
+        Grouping.Type => WithType((RoomType)index, color),
+        Grouping.Size => WithSize(index, color),
+        _ => WithSubregion(region, index, color)
+    };
 
     /// <summary>The color of a room's button when the buttons are colored by <paramref name="view"/>.</summary>
     public Hsl For(RoomInfo room, Grouping view, string region) => view switch

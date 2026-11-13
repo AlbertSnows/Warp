@@ -82,15 +82,15 @@ internal static class PreviewPainter
         PaintSlope(canvas, room.SlopeAt(tx, ty), x, y);
         if (tile.Terrain == Terrain.Floor)
         {
-            canvas.Fill(x, y + 1, 3, 2, _floorTop);
+            canvas.Fill(x, y + 1, TileSize, 2, _floorTop);
         }
         if (tile.VerticalBeam)
         {
-            canvas.Fill(x + 1, y, 1, 3, _rock);
+            canvas.Fill(x + 1, y, 1, TileSize, _rock);
         }
         if (tile.HorizontalBeam)
         {
-            canvas.Fill(x, y + 1, 3, 1, _rock);
+            canvas.Fill(x, y + 1, TileSize, 1, _rock);
         }
         if (ty < room.WaterLevel)
         {

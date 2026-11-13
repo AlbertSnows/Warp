@@ -91,30 +91,25 @@ internal static class WarpFiles
     public static string WriteRoomList(string text) => TryWrite(RoomListPath, text) ? RoomListPath : null;
 
     /// <summary>The lines of a file, or null if it is missing or cannot be read.</summary>
-    public static string[] TryReadLines(string path)
-    {
-        try
-        {
-            return File.Exists(path) ? File.ReadAllLines(path) : null;
-        }
-        catch (Exception error)
-        {
-            WarpLog.Exception("reading " + path, error);
-            return null;
-        }
-    }
+    public static string[] TryReadLines(string path) => TryIo(path, File.ReadAllLines);
 
     /// <summary> The text of a file, or null if it is missing or cannot be read. A failure is logged. </summary>
-    private static string TryRead(string path)
+    private static string TryRead(string path) => TryIo(path, File.ReadAllText);
+
+    /// <summary>
+    /// Reads a file with <paramref name="read"/> and returns what it gave, or the default (null) if the file is missing
+    /// or the read fails. A failure is logged and not thrown, so one unreadable file cannot break the menu.
+    /// </summary>
+    private static T TryIo<T>(string path, Func<string, T> read)
     {
         try
         {
-            return File.Exists(path) ? File.ReadAllText(path) : null;
+            return File.Exists(path) ? read(path) : default;
         }
         catch (Exception error)
         {
             WarpLog.Exception("reading " + path, error);
-            return null;
+            return default;
         }
     }
 

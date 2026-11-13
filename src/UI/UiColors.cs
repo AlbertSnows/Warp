@@ -1,10 +1,8 @@
 using UnityEngine;
-using Warp.Model;
-using Warp.Preview;
 
 namespace Warp.UI;
 
-/// <summary>The colors the menu uses for states, and the conversion from the palette's colors.</summary>
+/// <summary>The colors the menu uses for states.</summary>
 internal static class UiColors
 {
     /// <summary> A sort or view button that is chosen. </summary>
@@ -28,16 +26,6 @@ internal static class UiColors
 
     /// <summary> The "Warp Menu" heading. </summary>
     public static readonly Color Title = new(0.33f, 0.33f, 0.33f);
-
-    /// <summary> The game's color for a palette color. </summary>
-    public static Color ToColor(Hsl color) => new HSLColor(color.Hue, color.Saturation, color.Lightness).rgb;
-
-    /// <summary> The preview's color for a palette color. </summary>
-    public static Rgba ToRgba(Hsl color)
-    {
-        Color rgb = ToColor(color);
-        return new Rgba(rgb.r, rgb.g, rgb.b, rgb.a);
-    }
 
     /// <summary>The color of a button for a region: bright when its rooms are loaded, dim when not, red for favourites.</summary>
     public static Color RegionButton(bool loaded, bool favourite)

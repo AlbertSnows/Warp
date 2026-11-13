@@ -1,5 +1,5 @@
 #nullable enable
-using System.Collections.Generic;
+using System;
 using Warp.Model;
 
 namespace Warp.Preview;
@@ -39,18 +39,7 @@ internal sealed record ExportOptions(int Scale = 1, BorderMode Border = BorderMo
     public ExportOptions NextBorder() => this with { Border = Cycle(_borderModes, Border) };
 
     /// <summary> The value after <paramref name="current"/> in the list, wrapping round. The first if it is not in it. </summary>
-    private static T Cycle<T>(IReadOnlyList<T> values, T current)
-    {
-        int index = -1;
-        for (int i = 0; i < values.Count; i++)
-        {
-            if (EqualityComparer<T>.Default.Equals(values[i], current))
-            {
-                index = i;
-            }
-        }
-        return values[(index + 1) % values.Count];
-    }
+    private static T Cycle<T>(T[] values, T current) => values[(Array.IndexOf(values, current) + 1) % values.Length];
 
     /// <summary> Whether a room of this type gets a border under the chosen mode. </summary>
     public bool HasBorder(RoomType type) => Border switch

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Warp.Switching;
@@ -11,8 +12,23 @@ internal static class PlayerOps
     /// Whether the players can be moved: each alive player has a body, and none is in the shortcut system. A player in
     /// a shortcut that is placed in a room is left stuck there.
     /// </summary>
-    public static bool PlayersCanMove(RainWorldGame game)
-        => game.AlivePlayers.All(player => player.realizedCreature is Player { inShortcut: false });
+    public static bool PlayersCanMove(RainWorldGame game) => game.AlivePlayers.All(CanMove);
+
+    /// <summary>Whether the room is realized and the game says a player can be put in it.</summary>
+    public static bool RoomReady(AbstractRoom room) => room.realizedRoom is { ReadyForPlayer: true };
+
+    private static bool CanMove(AbstractCreature player) => player.realizedCreature is Player { inShortcut: false };
+
+    /// <summary>
+    /// What a warp that waits for the players and for something else (the room, or nothing) decides from. The alive
+    /// players are listed once.
+    /// </summary>
+    public static WarpWaitFacts Facts(RainWorldGame game, bool ready, FrameClock clock)
+    {
+        List<AbstractCreature> players = game.AlivePlayers;
+        return new WarpWaitFacts(
+            StillApplies: players.Count > 0, Ready: ready, PlayersCanMove: players.All(CanMove), Now: clock.Now);
+    }
 
     /// <summary>
     /// Lets go of any creature the creature is holding, so it is not dragged along into the new room. A slugpup is

@@ -138,7 +138,7 @@ internal sealed record LeftPanelLayout(
     public static (float X, float Y) RegionButtonOffset(int index, int regionCount)
     {
         int columns = GridColumns(regionCount);
-        float inset = columns == 4 ? 17f : 0f;
+        float inset = columns == WideColumns ? 17f : 0f;
         return (-55f - inset + 35f * (index % columns), -(35f + ButtonGridRowHeight * (index / columns)));
     }
 }

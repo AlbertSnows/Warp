@@ -36,10 +36,8 @@ internal sealed class RoomPreviewDialog : Dialog
     private int _cooldown = OpenCooldown;
     private int _opening = FadeFrames;
     private int _closing = -1;
-    private float _lastDimAlpha;
-    private float _lastSpriteAlpha;
     private ExportOptions _options = new();
-    private RoomInfo[] _exportRooms = [];
+    private readonly RoomInfo[] _rooms;
     private int _exportNext;
     private bool _exporting;
     private readonly string _atlasName;
@@ -76,6 +74,8 @@ internal sealed class RoomPreviewDialog : Dialog
         _pause = pause;
         _room = room;
         _region = region;
+        // The region's rooms are taken once, here, so looking a room up later reads nothing from disk and cannot throw
+        _rooms = RegionCatalog.Get(region).Rooms;
         _tiles = ReadTiles(room);
         _canvas = PreviewPainter.Paint(_tiles);
 
@@ -84,8 +84,8 @@ internal sealed class RoomPreviewDialog : Dialog
         {
             // Always made afresh, so a room file that changed since it was last previewed is not shown as it was
             UnloadAtlasNamed(_atlasName);
-            Futile.atlasManager.LoadAtlasFromTexture(_atlasName, ToTexture(_canvas), false);
-            Vector2 screen = Custom.rainWorld.options.ScreenSize;
+            Futile.atlasManager.LoadAtlasFromTexture(_atlasName, _canvas.ToTexture(), false);
+            Vector2 screen = UiLayout.Screen(Custom.rainWorld);
             int centerX = Mathf.RoundToInt(screen.x / 2);
             int centerY = Mathf.RoundToInt(screen.y / 2);
 
@@ -124,19 +124,10 @@ internal sealed class RoomPreviewDialog : Dialog
     /// <summary> Reads a room's tiles from its file, after the game has brought an old file up to date. </summary>
     private static RoomTiles ReadTiles(string room)
     {
-        string[] lines = File.ReadAllLines(WorldLoader.FindRoomFile(room, false, ".txt"));
+        string path = RoomFiles.Find(room) ?? throw new FileNotFoundException("No room file for " + room);
+        string[] lines = File.ReadAllLines(path);
         RoomPreprocessor.VersionFix(ref lines);
         return RoomTiles.Parse(lines);
-    }
-
-    /// <summary> A texture with the canvas's pixels, drawn without smoothing so each pixel stays sharp. </summary>
-    private static Texture2D ToTexture(PixelCanvas canvas)
-    {
-        var texture = new Texture2D(canvas.Width, canvas.Height);
-        texture.SetPixels([.. canvas.ToArray().Select(pixel => new Color(pixel.R, pixel.G, pixel.B, pixel.A))]);
-        texture.Apply();
-        texture.filterMode = FilterMode.Point;
-        return texture;
     }
 
     /// <summary>Takes the preview's pictures off the screen, as when a warp starts.</summary>
@@ -156,8 +147,6 @@ internal sealed class RoomPreviewDialog : Dialog
     public override void GrafUpdate(float timeStacker)
     {
         base.GrafUpdate(timeStacker);
-        _lastDimAlpha = _dim.alpha;
-        _lastSpriteAlpha = _sprite.alpha;
         float dimTarget, spriteTarget, labelTarget;
         if (_opening >= 0)
         {
@@ -169,18 +158,22 @@ internal sealed class RoomPreviewDialog : Dialog
         {
             _opening = -1;
             float progress = Mathf.InverseLerp(FadeFrames, 0, _closing);
-            dimTarget = Mathf.Lerp(DimAlpha, 0f, progress);
-            spriteTarget = labelTarget = Mathf.Lerp(1f, 0f, progress);
+            dimTarget = labelTarget = Mathf.Lerp(DimAlpha, 0f, progress);
+            spriteTarget = Mathf.Lerp(1f, 0f, progress);
         }
         else
         {
             return;
         }
-        _dim.alpha = Mathf.Lerp(_lastDimAlpha, dimTarget, timeStacker);
-        _sprite.alpha = Mathf.Lerp(_lastSpriteAlpha, spriteTarget, timeStacker);
-        _instructions.alpha = Mathf.Lerp(_lastDimAlpha, labelTarget, timeStacker);
-        _exportLabel.alpha = _instructions.alpha;
+        // Each one moves from its own alpha, so the texts fade in and out by the same amount
+        Approach(_dim, dimTarget, timeStacker);
+        Approach(_sprite, spriteTarget, timeStacker);
+        Approach(_instructions, labelTarget, timeStacker);
+        Approach(_exportLabel, labelTarget, timeStacker);
     }
+
+    /// <summary> Moves a node's alpha towards a target by the share of the frame that has passed. </summary>
+    private static void Approach(FNode node, float target, float timeStacker) => node.alpha = Mathf.Lerp(node.alpha, target, timeStacker);
 
     /// <summary>
     /// Counts the fades down, closes on a right click, warps on a left click, and opens the export bar on Shift +
@@ -211,7 +204,7 @@ internal sealed class RoomPreviewDialog : Dialog
         {
             Close();
         }
-        if (_bar == null && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) && Input.GetKey(KeyCode.E))
+        if (_bar == null && UiInput.ShiftHeld && Input.GetKey(KeyCode.E))
         {
             ShowExportBar();
         }
@@ -231,8 +224,7 @@ internal sealed class RoomPreviewDialog : Dialog
         {
             return;
         }
-        WarpState.RequestWarp(new WarpRequest(_region, _room, tile));
-        _pause.Singal(null, "CONTINUE");
+        PauseMenuActions.StartWarp(_pause, new WarpRequest(_region, _room, tile));
         _closing = 0;
     }
 
@@ -329,7 +321,7 @@ internal sealed class RoomPreviewDialog : Dialog
                 PlaySound(SoundID.MENU_Button_Standard_Button_Pressed);
                 break;
             case ExportBar.ExportSignal:
-                string saved = TrySave(_room, () => _canvas);
+                string saved = PreviewExporter.TrySave(_region, _room, TypeOf(_room), _options, () => _canvas);
                 _exportLabel.text = saved != null
                     ? Translator.Format("Saved: {0}", saved)
                     : Translator.Translate("The picture could not be saved. The log says why");
@@ -340,8 +332,6 @@ internal sealed class RoomPreviewDialog : Dialog
                 break;
             case ExportBar.ExportRegionSignal:
                 _exporting = true;
-                // The rooms are taken once, so a region read again while this runs cannot change what is being exported
-                _exportRooms = RegionCatalog.Get(_region).Rooms;
                 _exportNext = 0;
                 _exportLabel.text = "";
                 break;
@@ -366,57 +356,11 @@ internal sealed class RoomPreviewDialog : Dialog
         _ => "BORDERS: NONE"
     };
 
-    /// <summary>
-    /// Saves one room's picture, with the chosen border and scale, and returns where it went. Returns null and logs
-    /// the reason if it could not be saved, whether the room cannot be read, the picture is too big or the disk
-    /// refuses it. The picture is made inside, so a failure to make it is caught too.
-    /// </summary>
-    private string TrySave(string room, Func<PixelCanvas> preview)
-    {
-        try
-        {
-            return Save(room, preview());
-        }
-        catch (Exception error)
-        {
-            WarpLog.Exception("exporting " + room, error);
-            return null;
-        }
-    }
-
     /// <summary> The type of a room of the region, which decides whether its picture gets a border. An ordinary room if unknown. </summary>
     private RoomType TypeOf(string room)
     {
-        RoomInfo info = _exportRooms.FirstOrDefault(candidate => candidate.Name == room)
-                        ?? RegionCatalog.Get(_region).Rooms.FirstOrDefault(candidate => candidate.Name == room);
+        RoomInfo info = _rooms.FirstOrDefault(candidate => candidate.Name == room);
         return info?.Type ?? RoomType.Room;
-    }
-
-    private string Save(string room, PixelCanvas preview)
-    {
-        RoomType type = TypeOf(room);
-        Rgba? border = _options.HasBorder(type) ? UiColors.ToRgba(WarpState.Palette.Type(type)) : null;
-        (int width, int height) = _options.OutputSize(preview.Width, preview.Height, border != null);
-        if (!ExportOptions.Fits(width, height))
-        {
-            throw new InvalidOperationException(
-                "The picture would be " + width + " by " + height + " pixels, and Unity allows at most "
-                + ExportOptions.MaxTextureSize + " on a side. Choose a smaller scale.");
-        }
-
-        string folder = WarpFiles.ExportFolderOf(_region);
-        Directory.CreateDirectory(folder);
-        string path = Path.Combine(folder, room + "_preview.png");
-        Texture2D texture = ToTexture(_options.Compose(preview, border));
-        try
-        {
-            File.WriteAllBytes(path, texture.EncodeToPNG());
-        }
-        finally
-        {
-            UnityEngine.Object.Destroy(texture);
-        }
-        return path;
     }
 
     /// <summary>Exports one more room of the region, so a whole region is saved over many frames and the game keeps drawing.</summary>
@@ -428,21 +372,21 @@ internal sealed class RoomPreviewDialog : Dialog
             _progress.SetAnchor(0f, 0.5f);
             pages[0].Container.AddChild(_progress);
         }
-        if (_exportNext < _exportRooms.Length)
+        if (_exportNext < _rooms.Length)
         {
-            string room = _exportRooms[_exportNext].Name;
-            TrySave(room, () => PreviewPainter.Paint(ReadTiles(room)));
+            RoomInfo info = _rooms[_exportNext];
+            PreviewExporter.TrySave(_region, info.Name, info.Type, _options, () => PreviewPainter.Paint(ReadTiles(info.Name)));
             _exportNext++;
         }
-        _progress.scaleX = Mathf.Lerp(0f, Custom.rainWorld.options.ScreenSize.x, Mathf.InverseLerp(0, _exportRooms.Length, _exportNext));
-        if (_exportNext < _exportRooms.Length)
+        _progress.scaleX = Mathf.Lerp(0f, UiLayout.Screen(Custom.rainWorld).x, Mathf.InverseLerp(0, _rooms.Length, _exportNext));
+        if (_exportNext < _rooms.Length)
         {
             return;
         }
 
         _exporting = false;
         _progress.alpha = 0f;
-        _exportLabel.text = Translator.Format("Finished exporting {0} rooms", _exportRooms.Length);
+        _exportLabel.text = Translator.Format("Finished exporting {0} rooms", _rooms.Length);
     }
 
     /// <summary>The row of export buttons along the bottom of the preview.</summary>

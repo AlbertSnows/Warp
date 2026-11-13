@@ -14,16 +14,33 @@ namespace Warp.Hooks;
 /// </summary>
 internal static class WarpHooks
 {
-    /// <summary> Hooks the game methods Warp needs. Call it once, when the mods start. </summary>
+    /// <summary>
+    /// Hooks the game methods Warp needs. Call it once, when the mods start. Each is installed on its own, so one that
+    /// fails (a game update that renames a method) is logged by name and the others still go in.
+    /// </summary>
     public static void Install()
     {
-        On.Menu.PauseMenu.ctor += PauseMenuCtor;
-        On.Menu.PauseMenu.Singal += PauseMenuSignal;
-        On.Menu.PauseMenu.Update += PauseMenuUpdate;
-        On.OverWorld.Update += OverWorldUpdate;
-        On.SaveState.LoadGame += SaveStateLoadGame;
-        On.Menu.TutorialControlsPage.GrafUpdate += TutorialControlsPageGrafUpdate;
-        On.RainWorldGame.ContinuePaused += RainWorldGameContinuePaused;
+        (string Name, Action Install)[] hooks =
+        [
+            ("PauseMenu.ctor", () => On.Menu.PauseMenu.ctor += PauseMenuCtor),
+            ("PauseMenu.Singal", () => On.Menu.PauseMenu.Singal += PauseMenuSignal),
+            ("PauseMenu.Update", () => On.Menu.PauseMenu.Update += PauseMenuUpdate),
+            ("OverWorld.Update", () => On.OverWorld.Update += OverWorldUpdate),
+            ("SaveState.LoadGame", () => On.SaveState.LoadGame += SaveStateLoadGame),
+            ("TutorialControlsPage.GrafUpdate", () => On.Menu.TutorialControlsPage.GrafUpdate += TutorialControlsPageGrafUpdate),
+            ("RainWorldGame.ContinuePaused", () => On.RainWorldGame.ContinuePaused += RainWorldGameContinuePaused)
+        ];
+        foreach ((string name, Action install) in hooks)
+        {
+            try
+            {
+                install();
+            }
+            catch (Exception error)
+            {
+                WarpLog.Exception("installing the " + name + " hook", error);
+            }
+        }
     }
 
     /// <summary> Prepares Warp before a pause menu is built and adds the Warp menu to it afterwards. </summary>
@@ -95,8 +112,7 @@ internal static class WarpHooks
             // The driver handles the faults it expects. This is for one it does not, and ending the warp stops the
             // same fault from coming back every frame
             Guard.Report("carrying out a warp", error);
-            WarpDriver.Cancel();
-            WarpState.EndWarp();
+            WarpDriver.End();
         }
     }
 

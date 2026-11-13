@@ -73,8 +73,8 @@ internal sealed class WarpButton : ButtonTemplate
         base.GrafUpdate(timeStacker);
         Color color = MyColor(timeStacker);
         Label.label.color = color;
-        float flash = Mathf.Lerp(buttonBehav.lastFlash, buttonBehav.flash, timeStacker);
-        var fillColor = Color.Lerp(Menu.Menu.MenuRGB(Menu.Menu.MenuColors.Black), Menu.Menu.MenuRGB(Menu.Menu.MenuColors.White), flash);
+        var fillColor = Color.Lerp(Menu.Menu.MenuRGB(Menu.Menu.MenuColors.Black), Menu.Menu.MenuRGB(Menu.Menu.MenuColors.White),
+            buttonBehav.Flash(timeStacker));
         foreach (FSprite sprite in _fill.sprites)
         {
             sprite.color = fillColor;
@@ -98,10 +98,7 @@ internal sealed class WarpButton : ButtonTemplate
         {
             return Color.Lerp(Tint, dark, black);
         }
-        float glow = Mathf.Max(
-            Mathf.Lerp(buttonBehav.lastCol, buttonBehav.col, timeStacker),
-            Mathf.Lerp(buttonBehav.lastFlash, buttonBehav.flash, timeStacker));
-        var lit = Color.Lerp(Tint, Menu.Menu.MenuColor(Menu.Menu.MenuColors.White).rgb, glow);
+        var lit = Color.Lerp(Tint, Menu.Menu.MenuColor(Menu.Menu.MenuColors.White).rgb, buttonBehav.Glow(timeStacker));
         return Color.Lerp(lit, dark, black);
     }
 

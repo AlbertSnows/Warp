@@ -22,12 +22,7 @@ internal static class WarpSignals
     public static string ForRoom(string room) => RoomPrefix + room;
 
     /// <summary> The room a message is for, or null if it is not a room button's message. </summary>
-    public static string? RoomOf(string message)
-    {
-        return message.StartsWith(RoomPrefix, StringComparison.Ordinal) && message.Length > RoomPrefix.Length
-            ? message.Substring(RoomPrefix.Length)
-            : null;
-    }
+    public static string? RoomOf(string message) => After(message, RoomPrefix);
 
     // ---- Messages that stay inside the Warp menu ------------------------------------------------------------------
 
@@ -65,12 +60,7 @@ internal static class WarpSignals
     public static string ForRegion(string region) => RegionPrefix + region;
 
     /// <summary> The region a message is for, or null if it is not a region button's message. </summary>
-    public static string? RegionOf(string message)
-    {
-        return message.StartsWith(RegionPrefix, StringComparison.Ordinal) && message.Length > RegionPrefix.Length
-            ? message.Substring(RegionPrefix.Length)
-            : null;
-    }
+    public static string? RegionOf(string message) => After(message, RegionPrefix);
 
     /// <summary> The message of the sort button for a grouping. </summary>
     public static string ForSort(Grouping grouping) => SortPrefix + grouping.Code();
@@ -100,13 +90,7 @@ internal static class WarpSignals
     public static string ForCategory(Grouping grouping) => CategoryPrefix + grouping.Code();
 
     /// <summary> The category a message stands for, or null if it is not a category button's. </summary>
-    public static Grouping? CategoryOf(string message)
-    {
-        return message.StartsWith(CategoryPrefix, StringComparison.Ordinal)
-               && Groupings.FromCode(message.Substring(CategoryPrefix.Length)) is { } grouping
-            ? grouping
-            : null;
-    }
+    public static Grouping? CategoryOf(string message) => After(message, CategoryPrefix) is { } code && Groupings.FromCode(code) is { } grouping ? grouping : null;
 
     /// <summary> The message of a color swatch of the color editor, given its index. </summary>
     public static string ForSwatch(int index) => SwatchPrefix + index;
@@ -114,10 +98,18 @@ internal static class WarpSignals
     /// <summary> The swatch a message stands for, or null if it is not a swatch's message. </summary>
     public static int? SwatchOf(string message)
     {
-        return message.StartsWith(SwatchPrefix, StringComparison.Ordinal)
-               && int.TryParse(message.Substring(SwatchPrefix.Length), System.Globalization.NumberStyles.None,
+        return After(message, SwatchPrefix) is { } digits
+               && int.TryParse(digits, System.Globalization.NumberStyles.None,
                    System.Globalization.CultureInfo.InvariantCulture, out int index)
             ? index
+            : null;
+    }
+
+    /// <summary> What comes after the prefix, or null if the message does not start with it or has nothing after it. </summary>
+    private static string? After(string message, string prefix)
+    {
+        return message.StartsWith(prefix, StringComparison.Ordinal) && message.Length > prefix.Length
+            ? message.Substring(prefix.Length)
             : null;
     }
 }
