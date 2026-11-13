@@ -1,5 +1,6 @@
 #nullable enable
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Warp.Model;
 
@@ -21,31 +22,24 @@ internal sealed record RoomGridLayout(PlacedButton[] Buttons, PlacedLabel[] Labe
     {
         get
         {
-            foreach (var button in Buttons)
-            {
-                if (button.Page == 1)
-                {
-                    return true;
-                }
-            }
-            return false;
+            return Buttons.Any(button => button.Page == 1);
         }
     }
 
     /// <summary>The left edge of the room area. A button further left than this goes on the second page.</summary>
-    public const float PageEdge = 250f;
+    internal const float PageEdge = 250f;
 
     /// <summary>
     /// Page 1 is laid out at the left of the screen, where it would be hidden behind the control panel. It is shown
     /// by moving it right by this much.
     /// </summary>
-    public const float ShownShift = 1042f;
+    private const float ShownShift = 1042f;
 
     /// <summary>Page 1 while page 0 is showing: moved off the left edge.</summary>
-    public const float HiddenLeft = -2000f;
+    private const float HiddenLeft = -2000f;
 
     /// <summary>Page 0 while page 1 is showing: moved off the right edge.</summary>
-    public const float HiddenRight = 3042f;
+    private const float HiddenRight = 3042f;
 
     private const float ButtonTop = 80f;
     private const float LabelTop = 45f;
@@ -62,14 +56,14 @@ internal sealed record RoomGridLayout(PlacedButton[] Buttons, PlacedLabel[] Labe
     {
         var buttons = new List<PlacedButton>();
         var labels = new List<PlacedLabel>();
-        var column = 0;
-        var row = 0;
-        var shift = 0f;
+        int column = 0;
+        int row = 0;
+        float shift = 0f;
         int? group = null;
 
-        for (var i = 0; i < rooms.Count; i++)
+        for (int i = 0; i < rooms.Count; i++)
         {
-            var key = rooms[i].GroupKey(grouping);
+            int key = rooms[i].GroupKey(grouping);
             if (group != key)
             {
                 if (group != null)
@@ -85,8 +79,8 @@ internal sealed record RoomGridLayout(PlacedButton[] Buttons, PlacedLabel[] Labe
             {
                 continue;
             }
-            var x = screenWidth - (80f + shift) - ColumnWidth * column;
-            var y = screenHeight - ButtonTop - RowHeight * row;
+            float x = screenWidth - (80f + shift) - ColumnWidth * column;
+            float y = screenHeight - ButtonTop - RowHeight * row;
             buttons.Add(Place(new PlacedButton(i, x, y, 0)));
             if (row < RowsPerColumn - 1)
             {
@@ -99,7 +93,7 @@ internal sealed record RoomGridLayout(PlacedButton[] Buttons, PlacedLabel[] Labe
                 shift -= 10f;
             }
         }
-        return new RoomGridLayout(buttons.ToArray(), labels.ToArray());
+        return new RoomGridLayout([.. buttons], [.. labels]);
     }
 
     /// <summary>
@@ -116,8 +110,10 @@ internal sealed record RoomGridLayout(PlacedButton[] Buttons, PlacedLabel[] Labe
         return grouping == Grouping.Subregion ? (column, shift + 5f) : (column, shift);
     }
 
+    /// <summary> The button with the page its position puts it on. </summary>
     private static PlacedButton Place(PlacedButton button) => button with { Page = button.X < PageEdge ? 1 : 0 };
 
+    /// <summary> The heading with the page its position puts it on. </summary>
     private static PlacedLabel Place(PlacedLabel label) => label with { Page = label.X < PageEdge ? 1 : 0 };
 
     /// <summary>

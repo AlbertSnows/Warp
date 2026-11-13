@@ -19,16 +19,20 @@ internal sealed record RegionStats(
     IReadOnlyDictionary<RoomType, int> CountsByType,
     IReadOnlyList<KeyValuePair<int, int>> RoomsByCameras)
 {
-    public int Count(RoomType type) => CountsByType.TryGetValue(type, out var count) ? count : 0;
+    /// <summary> How many rooms there are of the type, zero if none. </summary>
+    internal int Count(RoomType type) => CountsByType.TryGetValue(type, out int count) ? count : 0;
 
+    /// <summary> The counts for a region's rooms. </summary>
     public static RegionStats Of(IReadOnlyCollection<RoomInfo> rooms)
     {
         return new RegionStats(
             rooms.Count,
             rooms.Sum(room => room.Cameras),
             rooms.GroupBy(room => room.Type).ToDictionary(group => group.Key, group => group.Count()),
-            rooms.GroupBy(room => room.Cameras).OrderBy(group => group.Key)
-                .Select(group => new KeyValuePair<int, int>(group.Key, group.Count())).ToList());
+            [
+                .. rooms.GroupBy(room => room.Cameras).OrderBy(group => group.Key)
+                    .Select(group => new KeyValuePair<int, int>(group.Key, group.Count()))
+            ]);
     }
 
     /// <summary>
@@ -48,13 +52,14 @@ internal sealed record RegionStats(
         AppendIfAny(summary, translate("Scav Tolls: "), Count(RoomType.ScavOutpost));
 
         var breakdown = new StringBuilder();
-        foreach (var pair in RoomsByCameras)
+        foreach (KeyValuePair<int, int> pair in RoomsByCameras)
         {
             breakdown.AppendLine().Append(pair.Key + translate(" Screen: ") + pair.Value);
         }
         return (summary.ToString(), breakdown.ToString());
     }
 
+    /// <summary> Adds a line to the text, but only when the count is above zero. </summary>
     private static void AppendIfAny(StringBuilder text, string label, int count)
     {
         if (count > 0)

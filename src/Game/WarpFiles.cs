@@ -13,8 +13,10 @@ namespace Warp.Game;
 /// </summary>
 internal static class WarpFiles
 {
-    public static string Folder => Path.Combine(Application.persistentDataPath, "Warp");
+    /// <summary> Where Warp keeps its files: a Warp folder in the game's data folder. </summary>
+    private static string Folder => Path.Combine(Application.persistentDataPath, "Warp");
 
+    /// <summary> Where exported room pictures go, in a folder for each region. </summary>
     public static string ExportFolder => Path.Combine(Folder, "Export");
 
     private static string SettingsPath => Path.Combine(Folder, "Settings.txt");
@@ -23,7 +25,8 @@ internal static class WarpFiles
 
     private static string ColorsPath => Path.Combine(Folder, "Colors.txt");
 
-    public static string RoomListPath => Path.Combine(Folder, "RoomListExport.txt");
+    /// <summary> The file the F5 and F6 room list is written to. </summary>
+    private static string RoomListPath => Path.Combine(Folder, "RoomListExport.txt");
 
     /// <summary>The folder the previews of one region are exported to.</summary>
     public static string ExportFolderOf(string region) => Path.Combine(ExportFolder, region);
@@ -34,28 +37,31 @@ internal static class WarpFiles
     /// </summary>
     public static Preferences LoadPreferences()
     {
-        var text = TryRead(SettingsPath);
-        var preferences = text == null ? null : Preferences.Parse(text);
-        if (preferences == null)
+        string text = TryRead(SettingsPath);
+        Preferences preferences = text == null ? null : Preferences.Parse(text);
+        if (preferences != null)
         {
-            preferences = new Preferences();
-            SavePreferences(preferences);
+            return preferences;
         }
+
+        preferences = new Preferences();
+        SavePreferences(preferences);
         return preferences;
     }
 
+    /// <summary> Writes the preferences to Settings.txt. </summary>
     public static void SavePreferences(Preferences preferences) => TryWrite(SettingsPath, preferences.Serialize());
 
+    /// <summary> The saved favourite regions, or none if there is no file. </summary>
     public static HashSet<string> LoadFavourites()
     {
-        var text = TryRead(FavouritesPath);
-        return text == null ? new HashSet<string>() : Favourites.Parse(text);
+        string text = TryRead(FavouritesPath);
+        return text == null ? [] : Favourites.Parse(text);
     }
 
+    /// <summary> Writes the favourite regions to Favourites.txt. </summary>
     public static void SaveFavourites(IEnumerable<string> favourites)
-    {
-        TryWrite(FavouritesPath, Favourites.Serialize(favourites));
-    }
+        => TryWrite(FavouritesPath, Favourites.Serialize(favourites));
 
     /// <summary>
     /// The saved colors. With no file yet, the colors that come with Warp are written out and used. A line that
@@ -63,33 +69,25 @@ internal static class WarpFiles
     /// </summary>
     public static ColorPalette LoadPalette()
     {
-        var text = TryRead(ColorsPath);
-        if (text == null)
+        string text = TryRead(ColorsPath);
+        if (text != null)
         {
-            text = Resources.Colors;
-            TryWrite(ColorsPath, text);
-            WarpLog.Info("Wrote the default colors");
+            return ColorFile.Parse(text.Split('\n'), ColorPalette.Default,
+                line => WarpLog.Error("Could not read a color from the colors file: " + line));
         }
+
+        text = Resources.Colors;
+        TryWrite(ColorsPath, text);
+        WarpLog.Info("Wrote the default colors");
         return ColorFile.Parse(text.Split('\n'), ColorPalette.Default,
             line => WarpLog.Error("Could not read a color from the colors file: " + line));
     }
 
+    /// <summary> Writes the palette to Colors.txt. </summary>
     public static void SavePalette(ColorPalette palette)
     {
         TryWrite(ColorsPath, ColorFile.Serialize(palette));
         WarpLog.Info("Custom colors saved");
-    }
-
-    public static void DeleteColors()
-    {
-        try
-        {
-            File.Delete(ColorsPath);
-        }
-        catch (Exception error)
-        {
-            WarpLog.Exception("deleting the colors file", error);
-        }
     }
 
     /// <summary>Writes the room list text where F5 and F6 put it, and returns the path.</summary>
@@ -113,6 +111,7 @@ internal static class WarpFiles
         }
     }
 
+    /// <summary> The text of a file, or null if it is missing or cannot be read. A failure is logged. </summary>
     private static string TryRead(string path)
     {
         try
@@ -126,11 +125,19 @@ internal static class WarpFiles
         }
     }
 
+    /// <summary>
+    /// Writes a text file, making its folder first. A failure is logged and not thrown, so a read-only folder
+    /// cannot break the menu.
+    /// </summary>
     private static void TryWrite(string path, string text)
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            string folder = Path.GetDirectoryName(path);
+            if (folder != null)
+            {
+                Directory.CreateDirectory(folder);
+            }
             File.WriteAllText(path, text);
         }
         catch (Exception error)

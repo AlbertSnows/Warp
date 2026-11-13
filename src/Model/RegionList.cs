@@ -27,16 +27,19 @@ internal static class RegionList
         IReadOnlyCollection<string> favourites,
         bool alphabetical)
     {
-        var entries = new List<RegionEntry>();
-        var seen = new HashSet<string>();
-        foreach (var id in regionIds.Where(id => seen.Add(id)))
-        {
-            var display = fullName(id) ?? id;
-            entries.Add(new RegionEntry(id, favourites.Contains(id) ? FavouriteMark + display : display));
-        }
+        IEnumerable<RegionEntry> entries = regionIds
+            .Distinct()
+            .Select(id => new RegionEntry(id, DisplayName(id, fullName, favourites)));
         return alphabetical
-            ? entries.OrderBy(entry => entry.Display, StringComparer.CurrentCulture).ToList()
-            : entries;
+            ? [.. entries.OrderBy(entry => entry.Display, StringComparer.CurrentCulture)]
+            : [.. entries];
+    }
+
+    /// <summary>The text for a region: its full name, or its id if it has none, with the favourite mark in front if needed.</summary>
+    private static string DisplayName(string id, Func<string, string?> fullName, IReadOnlyCollection<string> favourites)
+    {
+        string name = fullName(id) ?? id;
+        return favourites.Contains(id) ? FavouriteMark + name : name;
     }
 
     /// <summary>
@@ -47,12 +50,12 @@ internal static class RegionList
         IEnumerable<string> regionIds, IReadOnlyCollection<string> favourites, bool alphabetical)
     {
         var ids = regionIds.ToList();
-        var favouriteIds = ids.Where(favourites.Contains).OrderBy(id => id, StringComparer.CurrentCulture);
-        var others = ids.Where(id => !favourites.Contains(id));
+        IOrderedEnumerable<string> favouriteIds = ids.Where(favourites.Contains).OrderBy(id => id, StringComparer.CurrentCulture);
+        IEnumerable<string> others = ids.Where(id => !favourites.Contains(id));
         if (alphabetical)
         {
             others = others.OrderBy(id => id, StringComparer.CurrentCulture);
         }
-        return favouriteIds.Concat(others).ToList();
+        return [.. favouriteIds, .. others];
     }
 }

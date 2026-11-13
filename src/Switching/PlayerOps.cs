@@ -8,7 +8,7 @@ namespace Warp.Switching;
 internal static class PlayerOps
 {
     /// <summary>
-    /// Lets go of any creature the creature is holding, so it is not dragged along into the new room. Another
+    /// Let go of any creature the creature is holding, so it is not dragged along into the new room. Another
     /// player or a slugpup is kept, because it is meant to come along.
     /// </summary>
     public static void ReleaseHeldCreatures(Creature creature)
@@ -17,9 +17,9 @@ internal static class PlayerOps
         {
             return;
         }
-        for (var i = 0; i < creature.grasps.Length; i++)
+        for (int i = 0; i < creature.grasps.Length; i++)
         {
-            var grasp = creature.grasps[i];
+            Creature.Grasp grasp = creature.grasps[i];
             if (grasp?.grabbed is Creature held && !grasp.discontinued && !(held is Player { isSlugpup: true }))
             {
                 creature.ReleaseGrasp(i);
@@ -33,10 +33,10 @@ internal static class PlayerOps
     /// </summary>
     public static void RemoveDuplicates(List<UpdatableAndDeletable> updateList, IEnumerable<UpdatableAndDeletable> objects)
     {
-        foreach (var item in objects)
+        foreach (UpdatableAndDeletable item in objects)
         {
-            var first = updateList.IndexOf(item);
-            for (var i = updateList.Count - 1; first >= 0 && i > first; i--)
+            int first = updateList.IndexOf(item);
+            for (int i = updateList.Count - 1; first >= 0 && i > first; i--)
             {
                 if (updateList[i] == item)
                 {

@@ -31,9 +31,6 @@ internal readonly record struct StatsPlacement(float PanelX, float PanelY, float
 /// controls move as the picker changes height, and these functions work the positions out from that alone.
 /// </summary>
 internal sealed record LeftPanelLayout(
-    float StatsButtonY,
-    float DropdownY,
-    float DropOffset,
     float FilterLabelY,
     float ToggleY,
     float[] ButtonRowYs,
@@ -44,41 +41,55 @@ internal sealed record LeftPanelLayout(
     StatsPlacement? Stats)
 {
     /// <summary>How far down the dropdown's open list pushes the controls under it, out of sight.</summary>
-    public const float OpenListOffset = 1500f;
+    private const float OpenListOffset = 1500f;
 
-    public const int WideGridThreshold = 50;
+    /// <summary> With this many regions or more, the region button grid gets a fourth column. </summary>
+    private const int WideGridThreshold = 50;
     private const float ButtonGridRowHeight = 27f;
 
     /// <summary>The height of the title line, which the region picker hangs from.</summary>
     public static float TitleY(float screenHeight) => screenHeight - 39f;
 
+    /// <summary> The height of the STATS button, 72 under the top of the screen. </summary>
     public static float StatsButtonYFor(float screenHeight) => screenHeight - 72f;
 
     /// <summary>The height of the region dropdown, 65 under the title.</summary>
     public static float DropdownYFor(float screenHeight) => TitleY(screenHeight) - 65f;
 
+    /// <summary> Works out where everything goes for the given state of the panel. </summary>
     public static LeftPanelLayout Compute(LeftPanelInput input)
     {
-        var statsButtonY = StatsButtonYFor(input.ScreenHeight);
-        var dropdownY = DropdownYFor(input.ScreenHeight);
-        var dropOffset = DropOffsetFor(input);
-        var filterY = dropdownY - (input.DropdownMode ? 55f : 65f) - dropOffset;
-        var buttonRows = Enumerable.Range(0, 3).Select(i => filterY - 35f - 30f * i).ToArray();
-        var keyY = buttonRows[2] - 15f;
-        var keyYs = Enumerable.Range(0, input.ColorKeyEntries)
-            .Select(i => keyY - (input.ColorKeyIsRow ? 15f : 15f + 15f * i)).ToArray();
+        float statsButtonY = StatsButtonYFor(input.ScreenHeight);
+        float dropdownY = DropdownYFor(input.ScreenHeight);
+        float dropOffset = DropOffsetFor(input);
+        float filterY = dropdownY - (input.DropdownMode ? 55f : 65f) - dropOffset;
+        float[] buttonRows = [.. Enumerable.Range(0, 3).Select(i => filterY - 35f - 30f * i)];
+        float keyY = buttonRows[2] - 15f;
+        float[] keyYs =
+        [
+            .. Enumerable.Range(0, input.ColorKeyEntries)
+                .Select(i => keyY - (input.ColorKeyIsRow ? 15f : 15f + 15f * i))
+        ];
 
-        float? subLabelY = null;
-        var subYs = new float[0];
-        if (input.SubregionEntries > 0 && keyYs.Length > 0)
-        {
-            subLabelY = keyYs[keyYs.Length - 1] - 25f;
-            subYs = Enumerable.Range(0, input.SubregionEntries).Select(i => subLabelY.Value - 20f - 15f * i).ToArray();
-        }
-
+        (float? subLabelY, float[] subYs) = SubregionList(input, keyYs);
         return new LeftPanelLayout(
-            statsButtonY, dropdownY, dropOffset, filterY, filterY + 15f, buttonRows, keyY, keyYs, subLabelY, subYs,
+            filterY, filterY + 15f, buttonRows, keyY, keyYs, subLabelY, subYs,
             input.HasStats ? StatsFor(input, statsButtonY, dropOffset, keyYs, subYs) : null);
+    }
+
+    /// <summary>
+    /// The heights of the separate subregion list: its heading, 25 under the last line of the color key, and its
+    /// lines, the first 20 under the heading and each next 15 lower. No heading and no lines when there is no list,
+    /// or no key for it to hang from.
+    /// </summary>
+    private static (float? HeadingY, float[] LineYs) SubregionList(LeftPanelInput input, float[] keyYs)
+    {
+        bool hasList = input.SubregionEntries > 0 && keyYs.Length > 0;
+        float headingY = hasList ? keyYs[keyYs.Length - 1] - 25f : 0f;
+        float[] lineYs = hasList
+            ? [.. Enumerable.Range(0, input.SubregionEntries).Select(i => headingY - 20f - 15f * i)]
+            : [];
+        return (hasList ? headingY : null, lineYs);
     }
 
     /// <summary>
@@ -94,24 +105,28 @@ internal sealed record LeftPanelLayout(
         return ButtonGridRowHeight * LastRow(input.RegionButtons) - 5f;
     }
 
+    /// <summary>
+    /// Where the stats text goes: in a column beside the region buttons, or under the key if the key leaves room.
+    /// </summary>
     private static StatsPlacement StatsFor(
         LeftPanelInput input, float statsButtonY, float dropOffset, float[] keyYs, float[] subYs)
     {
-        var buttonMode = !input.DropdownMode;
-        var subregionsRunLow = subYs.Length > 0 && subYs[subYs.Length - 1] < 320f;
+        bool buttonMode = !input.DropdownMode;
+        bool subregionsRunLow = subYs.Length > 0 && subYs[subYs.Length - 1] < 320f;
         if (buttonMode || subregionsRunLow)
         {
-            var x = buttonMode ? (input.RegionButtons > WideGridThreshold ? 130f : 110f) : 160f;
+            float x = buttonMode ? (input.RegionButtons > WideGridThreshold ? 130f : 110f) : 160f;
             return new StatsPlacement(x, 0f, statsButtonY - 15f);
         }
-        var lastKeyY = keyYs.Length > 0 ? keyYs[keyYs.Length - 1] : 0f;
-        var textY = (subYs.Length > 0 ? subYs[subYs.Length - 1] : lastKeyY) - 20f;
+        float lastKeyY = keyYs.Length > 0 ? keyYs[keyYs.Length - 1] : 0f;
+        float textY = (subYs.Length > 0 ? subYs[subYs.Length - 1] : lastKeyY) - 20f;
         return new StatsPlacement(0f, -dropOffset, textY);
     }
 
     /// <summary>How many columns the region button grid has. A crowded install gets one more.</summary>
     public static int GridColumns(int regionCount) => regionCount >= WideGridThreshold ? 4 : 3;
 
+    /// <summary> The index of the last row of the region button grid, which is what decides its height. </summary>
     public static int LastRow(int buttonCount) => buttonCount == 0 ? 0 : (buttonCount - 1) / GridColumns(buttonCount);
 
     /// <summary>
@@ -120,8 +135,8 @@ internal sealed record LeftPanelLayout(
     /// </summary>
     public static (float X, float Y) RegionButtonOffset(int index, int regionCount)
     {
-        var columns = GridColumns(regionCount);
-        var inset = columns == 4 ? 17f : 0f;
+        int columns = GridColumns(regionCount);
+        float inset = columns == 4 ? 17f : 0f;
         return (-55f - inset + 35f * (index % columns), -(35f + ButtonGridRowHeight * (index / columns)));
     }
 }

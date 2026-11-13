@@ -40,16 +40,16 @@ internal sealed record Preferences(
     /// </summary>
     public static Preferences? Parse(string text)
     {
-        var digits = text.Trim();
+        string digits = text.Trim();
         if (digits.Length > 0 && digits.Any(c => c < '0' || c > '9'))
         {
             return null;
         }
         var result = new Preferences();
-        for (var i = 0; i < Math.Min(digits.Length, 6); i++)
+        for (int i = 0; i < Math.Min(digits.Length, 6); i++)
         {
-            var value = digits[i] - '0';
-            var largest = i is 2 or 3 ? (int)Grouping.Subregion : 1;
+            int value = digits[i] - '0';
+            int largest = i is 2 or 3 ? (int)Grouping.Subregion : 1;
             if (value > largest)
             {
                 return null;
@@ -67,6 +67,7 @@ internal sealed record Preferences(
         return result;
     }
 
+    /// <summary> A flag as the digit the settings file uses for it. </summary>
     private static int Digit(bool value) => value ? 1 : 0;
 }
 
@@ -75,12 +76,12 @@ internal sealed record Preferences(
 /// </summary>
 internal static class Favourites
 {
+    /// <summary> The text of the favourites file: the regions joined with colons. </summary>
     public static string Serialize(IEnumerable<string> regions) => string.Join(":", regions);
 
+    /// <summary> The regions named in a favourites file. Blank names are ignored. </summary>
     public static HashSet<string> Parse(string text)
-    {
-        return new HashSet<string>(text.Split(':').Select(name => name.Trim()).Where(name => name.Length > 0));
-    }
+        => [.. text.Split(':').Select(name => name.Trim()).Where(name => name.Length > 0)];
 
     /// <summary>The set with the region added if it was absent and removed if it was there.</summary>
     public static HashSet<string> Toggle(IReadOnlyCollection<string> favourites, string region)

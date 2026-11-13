@@ -12,22 +12,22 @@ namespace Warp.Game;
 /// </summary>
 internal static class RegionCatalog
 {
-    private static readonly Atom<Dictionary<string, RegionData>> Loaded = new(new Dictionary<string, RegionData>());
+    private static readonly Atom<Dictionary<string, RegionData>> _loaded = new(new Dictionary<string, RegionData>());
 
     /// <summary>Whether the region has been read already.</summary>
-    public static bool IsLoaded(string region) => Loaded.Deref().ContainsKey(region);
+    public static bool IsLoaded(string region) => _loaded.Deref().ContainsKey(region);
 
     /// <summary>The regions read so far, in no particular order.</summary>
-    public static IReadOnlyDictionary<string, RegionData> All => Loaded.Deref();
+    public static IReadOnlyDictionary<string, RegionData> All => _loaded.Deref();
 
     /// <summary>The region's data, read from the game's files the first time it is asked for.</summary>
-    public static RegionData Get(string region) => Loaded.Deref().TryGetValue(region, out var data) ? data : Reload(region);
+    public static RegionData Get(string region) => _loaded.Deref().TryGetValue(region, out RegionData data) ? data : Reload(region);
 
     /// <summary>Reads the region again, picking up any change to its files.</summary>
     public static RegionData Reload(string region)
     {
-        var data = Read(region);
-        Loaded.Swap(current => new Dictionary<string, RegionData>(current) { [region] = data });
+        RegionData data = Read(region);
+        _loaded.Swap(current => new Dictionary<string, RegionData>(current) { [region] = data });
         WarpState.UpdatePalette(palette => palette.WithSubregionCount(region, data.SubregionNames.Length));
         WarpLog.Info(region + " read: " + data.Rooms.Length + " rooms");
         return data;
@@ -42,47 +42,49 @@ internal static class RegionCatalog
     /// </summary>
     private static RegionData Read(string region)
     {
-        var worldLines = WarpFiles.TryReadLines(AssetManager.ResolveFilePath($"world/{region}/world_{region}.txt"));
-        var spoilerLines = WarpFiles.TryReadLines(AssetManager.ResolveFilePath($"world/{region}/spoilers.txt"));
-        var spoilers = RegionFiles.ParseSpoilers(spoilerLines ?? new string[0]);
-        var rooms = RegionFiles.ParseWorldFile(worldLines ?? new string[0], region, spoilers);
+        string[] worldLines = WarpFiles.TryReadLines(AssetManager.ResolveFilePath($"world/{region}/world_{region}.txt"));
+        string[] spoilerLines = WarpFiles.TryReadLines(AssetManager.ResolveFilePath($"world/{region}/spoilers.txt"));
+        HashSet<string> spoilers = RegionFiles.ParseSpoilers(spoilerLines ?? []);
+        List<RoomInfo> rooms = RegionFiles.ParseWorldFile(worldLines ?? [], region, spoilers);
 
-        var names = ReadSubregionNames(region);
-        var subregions = ReadSubregions(region, names);
+        string[] names = ReadSubregionNames(region);
+        Dictionary<string, int> subregions = ReadSubregions(region, names);
 
-        var finished = rooms.Select(room => WithDetails(room, region, subregions)).ToArray();
+        RoomInfo[] finished = [.. rooms.Select(room => WithDetails(room, region, subregions))];
         return new RegionData(region, RoomSorting.Sort(finished, Grouping.Type), names);
     }
 
+    /// <summary>
+    /// The subregion names from the region's properties file, or just the label for "none" if it has no such file.
+    /// </summary>
     private static string[] ReadSubregionNames(string region)
     {
-        var lines = WarpFiles.TryReadLines(AssetManager.ResolveFilePath($"world/{region}/properties.txt"));
-        if (lines == null)
-        {
-            return new[] { RoomInfo.NoSubregion };
-        }
-        return RegionFiles.ParseSubregionNames(lines, Translator.Translate("None"), SpaceAfterColon);
+        string[] lines = WarpFiles.TryReadLines(AssetManager.ResolveFilePath($"world/{region}/properties.txt"));
+        return lines == null ? [RegionData.NoSubregion] : RegionFiles.ParseSubregionNames(lines, Translator.Translate("None"), SpaceAfterColon);
     }
 
-    private static Dictionary<string, (int Index, string Name)> ReadSubregions(string region, string[] names)
+    /// <summary>
+    /// Which subregion each room is in, from the region's map file. Empty if the region has no map file.
+    /// </summary>
+    private static Dictionary<string, int> ReadSubregions(string region, string[] names)
     {
-        var lines = WarpFiles.TryReadLines(AssetManager.ResolveFilePath($"world/{region}/map_{region}.txt"));
+        string[] lines = WarpFiles.TryReadLines(AssetManager.ResolveFilePath($"world/{region}/map_{region}.txt"));
         return lines == null
-            ? new Dictionary<string, (int, string)>()
+            ? []
             : RegionFiles.ParseMapSubregions(lines, names, SpaceAfterColon);
     }
 
-    private static RoomInfo WithDetails(RoomInfo room, string region, Dictionary<string, (int Index, string Name)> subregions)
+    /// <summary> The room with its camera count and subregion filled in from the files that describe them. </summary>
+    private static RoomInfo WithDetails(RoomInfo room, string region, Dictionary<string, int> subregions)
     {
-        var withCameras = room with
+        RoomInfo withCameras = room with
         {
             Cameras = ReadCameras(room.Name, region) ?? 1
         };
-        return subregions.TryGetValue(room.Name, out var subregion)
+        return subregions.TryGetValue(room.Name, out int subregion)
             ? withCameras with
             {
-                Subregion = subregion.Index,
-                SubregionName = subregion.Name
+                Subregion = subregion
             }
             : withCameras;
     }
@@ -92,13 +94,13 @@ internal static class RegionCatalog
     /// </summary>
     private static int? ReadCameras(string room, string region)
     {
-        var paths = new[]
-        {
+        string[] paths =
+        [
             $"world/{region}-rooms/{room}.txt", $"levels/{room}.txt", $"world/gates/{room}.txt"
-        };
-        foreach (var path in paths)
+        ];
+        foreach (string path in paths)
         {
-            var lines = WarpFiles.TryReadLines(AssetManager.ResolveFilePath(path));
+            string[] lines = WarpFiles.TryReadLines(AssetManager.ResolveFilePath(path));
             if (lines != null)
             {
                 return RegionFiles.CameraCount(lines);
@@ -107,5 +109,6 @@ internal static class RegionCatalog
         return null;
     }
 
+    /// <summary> Puts the space the files expect after a colon, using the game's own function. </summary>
     private static string SpaceAfterColon(string line) => Custom.ValidateSpacedDelimiter(line, ":");
 }

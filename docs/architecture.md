@@ -85,6 +85,7 @@ Intended changes, in case one is noticed in the game:
 - The second page of room headings moves with its buttons. A comment in the old code said it did not work.
 - F5 and F6 are edge triggered. Holding F6 used to write and open the file every frame,
   and F5 only worked once per session.
+- Clicking in the room preview warps to the tile under the pointer. The old maths rounded to the nearest tile edge, which could pick the next tile along in rooms with an even width or height.
 - A warp to a tile in the preview puts every player there. Only the first used to go.
 - Duplicate objects are removed from a room's update list without deleting the objects after them, which the old loop did.
 - The camera count of a room without a room file is 1 when the room is read, and not when its button is made.

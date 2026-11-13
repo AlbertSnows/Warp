@@ -8,6 +8,7 @@ internal readonly record struct Rgba(float R, float G, float B, float A = 1f)
 {
     public static Rgba Grey(float level) => new(level, level, level);
 
+    /// <summary> The color part of the way from one color to another. The amount is held between 0 and 1. </summary>
     public static Rgba Lerp(Rgba from, Rgba to, float t)
     {
         t = Math.Min(Math.Max(t, 0f), 1f);
@@ -30,7 +31,7 @@ internal sealed class PixelCanvas
         Width = width;
         Height = height;
         _pixels = new Rgba[width * height];
-        for (var i = 0; i < _pixels.Length; i++)
+        for (int i = 0; i < _pixels.Length; i++)
         {
             _pixels[i] = fill;
         }
@@ -57,11 +58,12 @@ internal sealed class PixelCanvas
         }
     }
 
+    /// <summary> Fills a rectangle with a color. Parts of it off the canvas are skipped. </summary>
     public void Fill(int x, int y, int width, int height, Rgba color)
     {
-        for (var dy = 0; dy < height; dy++)
+        for (int dy = 0; dy < height; dy++)
         {
-            for (var dx = 0; dx < width; dx++)
+            for (int dx = 0; dx < width; dx++)
             {
                 Set(x + dx, y + dy, color);
             }
@@ -79,9 +81,9 @@ internal sealed class PixelCanvas
             return this;
         }
         var result = new PixelCanvas(Width * factor, Height * factor, default);
-        for (var y = 0; y < result.Height; y++)
+        for (int y = 0; y < result.Height; y++)
         {
-            for (var x = 0; x < result.Width; x++)
+            for (int x = 0; x < result.Width; x++)
             {
                 result._pixels[y * result.Width + x] = Get(x / factor, y / factor);
             }
@@ -93,9 +95,9 @@ internal sealed class PixelCanvas
     public PixelCanvas WithBorder(int width, Rgba color)
     {
         var result = new PixelCanvas(Width + 2 * width, Height + 2 * width, color);
-        for (var y = 0; y < Height; y++)
+        for (int y = 0; y < Height; y++)
         {
-            for (var x = 0; x < Width; x++)
+            for (int x = 0; x < Width; x++)
             {
                 result.Set(x + width, y + width, Get(x, y));
             }

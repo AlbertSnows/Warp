@@ -62,7 +62,7 @@ internal sealed class SwitchStepper
             return;
         }
 
-        var anyPlayerWithoutBody = game.AlivePlayers.Any(player => player.realizedCreature is not Player);
+        bool anyPlayerWithoutBody = game.AlivePlayers.Any(player => player.realizedCreature is not Player);
         if (anyPlayerWithoutBody)
         {
             //WorldLoaded moves every player's body, so a player without one (for example in a room that is not
@@ -78,7 +78,7 @@ internal sealed class SwitchStepper
         //The second half, which waits for the loader in a loop, is what
         //Update() does one step at a time instead.
         WarpLog.Info("Starting to load the new region.");
-        var overWorld = game.overWorld;
+        OverWorld overWorld = game.overWorld;
         overWorld.worldLoadedFromWarp = false;
         _worldLoader = new WorldLoader(
             game, overWorld.PlayerCharacterNumber, overWorld.PlayerTimelinePosition, false, request.Region,
@@ -98,15 +98,15 @@ internal sealed class SwitchStepper
         {
             return true;
         }
-        var before = _state;
+        SwitchState before = _state;
         try
         {
-            var applies = StillApplies();
+            bool applies = StillApplies();
             if (applies)
             {
                 AdvanceStage();
             }
-            var step = SwitchPolicy.Next(before, ObserveGame(applies), SwitchPolicy.DefaultTimeoutSeconds);
+            SwitchStep step = SwitchPolicy.Next(before, ObserveGame(applies), SwitchPolicy.DefaultTimeoutSeconds);
             _state = step.State;
             switch (step.Action)
             {
@@ -176,7 +176,7 @@ internal sealed class SwitchStepper
     /// </summary>
     private SwitchFacts ObserveGame(bool applies)
     {
-        var now = Time.realtimeSinceStartup;
+        float now = Time.realtimeSinceStartup;
         if (!applies)
         {
             return new SwitchFacts(StillApplies: false, Now: now);
@@ -185,7 +185,7 @@ internal sealed class SwitchStepper
         {
             return new SwitchFacts(StillApplies: true, LoaderFinished: _worldLoader.Finished, Now: now);
         }
-        var prepared = _newWorld.loadingRooms.Count == 0;
+        bool prepared = _newWorld.loadingRooms.Count == 0;
         return new SwitchFacts(
             StillApplies: true, RoomsPrepared: prepared, PlayersCanMove: prepared && PlayersCanMove(), Now: now);
     }
@@ -205,10 +205,8 @@ internal sealed class SwitchStepper
     /// <summary>
     /// How long the switch has been going, for the log.
     /// </summary>
-    private static string Elapsed(SwitchState switchState)
-    {
-        return SwitchPolicy.Elapsed(switchState, Time.realtimeSinceStartup, Time.frameCount);
-    }
+    private static string Elapsed(SwitchState switchState) =>
+        SwitchPolicy.Elapsed(switchState, Time.realtimeSinceStartup, Time.frameCount);
 
     /// <summary>
     /// The exception for a stage that took too long. Records which stage, so ErrorText names the right one.
@@ -226,8 +224,8 @@ internal sealed class SwitchStepper
     /// </summary>
     private bool StillApplies()
     {
-        var game = _request.Game;
-        var overWorld = game.overWorld;
+        RainWorldGame game = _request.Game;
+        OverWorld overWorld = game.overWorld;
         return overWorld.activeWorld == _request.OldWorld
                && overWorld.worldLoader == null
                && game.AlivePlayers.Count > 0;
@@ -266,7 +264,7 @@ internal sealed class SwitchStepper
     {
         WithNewWorldActive(() =>
         {
-            for (var i = _newWorld.loadingRooms.Count - 1; i >= 0; i--)
+            for (int i = _newWorld.loadingRooms.Count - 1; i >= 0; i--)
             {
                 if (_newWorld.loadingRooms[i].done)
                 {
@@ -286,8 +284,8 @@ internal sealed class SwitchStepper
     /// </summary>
     private void WithNewWorldActive(Action action)
     {
-        var overWorld = _request.Game.overWorld;
-        var active = overWorld.activeWorld;
+        OverWorld overWorld = _request.Game.overWorld;
+        World active = overWorld.activeWorld;
         overWorld.activeWorld = _newWorld;
         try
         {

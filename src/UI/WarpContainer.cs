@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Linq;
 using Menu;
 using UnityEngine;
@@ -28,7 +27,6 @@ internal sealed class WarpContainer : RectangularMenuObject
     private readonly RegionPicker _picker;
     private readonly Legend _legend;
     private readonly RoomGrid _grid;
-    private readonly MenuLabel _errorLabel;
     private bool _errorSoundPending;
     private StatsPanel _stats;
     private ColorEditor _editor;
@@ -37,8 +35,8 @@ internal sealed class WarpContainer : RectangularMenuObject
     {
         _game = menu.game;
         _pause = menu;
-        var screen = _game.rainWorld.options.ScreenSize;
-        var preferences = WarpState.Preferences;
+        Vector2 screen = _game.rainWorld.options.ScreenSize;
+        Preferences preferences = WarpState.Preferences;
         WarpState.SelectRegion(_game.world.region.name);
 
         _background = new FSprite("LinearGradient200", true)
@@ -85,26 +83,32 @@ internal sealed class WarpContainer : RectangularMenuObject
         }
         if (WarpState.Error != "")
         {
-            _errorLabel = new MenuLabel(menu, this, WarpState.Error, new Vector2(682f, 72f), Vector2.zero, true);
-            _errorLabel.label.color = UiColors.Error;
-            subObjects.Add(_errorLabel);
+            var errorLabel = new MenuLabel(menu, this, WarpState.Error, new Vector2(682f, 72f), Vector2.zero, true);
+            errorLabel.label.color = UiColors.Error;
+            subObjects.Add(errorLabel);
             _errorSoundPending = true;
         }
         Refresh();
     }
 
     /// <summary>Whether the room preview is open, which keeps the controls from moving under it.</summary>
-    public bool PreviewVisible
+    private bool PreviewVisible
     {
-        get; private set;
+        get;
+        set;
     }
 
     private static Color StatsTint(bool on) => on ? UiColors.Stats : Menu.Menu.MenuRGB(Menu.Menu.MenuColors.MediumGrey);
 
-    private MenuLabel AddLabel(string text, Vector2 pos, FLabelAlignment alignment)
+    private MenuLabel AddLabel(string text, Vector2 labelPos, FLabelAlignment alignment)
     {
-        var label = new MenuLabel(menu, this, text, pos, Vector2.zero, false);
-        label.label.alignment = alignment;
+        var label = new MenuLabel(menu, this, text, labelPos, Vector2.zero, false)
+        {
+            label =
+            {
+                alignment = alignment
+            }
+        };
         subObjects.Add(label);
         return label;
     }
@@ -147,8 +151,8 @@ internal sealed class WarpContainer : RectangularMenuObject
         {
             return;
         }
-        var data = RegionCatalog.Get(WarpState.SelectedRegion);
-        var preferences = WarpState.Preferences;
+        RegionData data = RegionCatalog.Get(WarpState.SelectedRegion);
+        Preferences preferences = WarpState.Preferences;
         _grid.Show(data, preferences.Sort, preferences.View, WarpState.Palette);
         _legend.Rebuild(data, preferences.Sort, preferences.View, WarpState.Palette);
         _stats?.Show(RegionStats.Of(data.Rooms));
@@ -165,7 +169,7 @@ internal sealed class WarpContainer : RectangularMenuObject
             _game.rainWorld.options.ScreenSize.y, _picker.DropdownMode, _picker.DropdownOpen, _picker.ButtonCount,
             _legend.KeyEntryCount, _legend.KeyIsRow, _legend.SubregionEntryCount, _stats != null));
         _legend.Place(layout);
-        foreach (var toggle in new[] { _listToggle, _colorToggle, _favouriteToggle })
+        foreach (WarpSymbolButton toggle in new[] { _listToggle, _colorToggle, _favouriteToggle })
         {
             toggle.pos.y = layout.ToggleY;
             toggle.lastPos.y = layout.ToggleY;
@@ -187,7 +191,7 @@ internal sealed class WarpContainer : RectangularMenuObject
             WarpState.ClearError();
             _errorSoundPending = false;
         }
-        var y = WarpState.Preferences.ShowMenu ? 0f : HiddenY;
+        float y = WarpState.Preferences.ShowMenu ? 0f : HiddenY;
         pos.y = y;
         lastPos.y = y;
 
@@ -206,17 +210,19 @@ internal sealed class WarpContainer : RectangularMenuObject
             (IsHot(_listToggle), Translator.TranslateWithSeparator(
                 "Toggle the region list between list view and button view #SEPARATOR# Shift click to toggle alphabetical sorting")),
             (IsHot(_colorToggle), Translator.Translate(
-                "Opens the colour customiser where you can change the colors for room types, sizes and subregions")),
+                "Opens the colour customizer where you can change the colors for room types, sizes and subregions")),
             (IsHot(_favouriteToggle), Translator.Translate(
                 "Toggle whether this region is favourited, putting it to the top of the list"))
         };
         // Later entries win when more than one is hot
-        var hint = hints.LastOrDefault(entry => entry.Hot);
-        if (hint.Hot)
+        (bool Hot, string Text) hint = hints.LastOrDefault(entry => entry.Hot);
+        if (!hint.Hot)
         {
-            _pause.infoLabel.text = hint.Text;
-            _pause.infoLabel.alpha = 1f;
+            return;
         }
+
+        _pause.infoLabel.text = hint.Text;
+        _pause.infoLabel.alpha = 1f;
     }
 
     private static bool IsHot(ButtonTemplate button) => button.Selected || button.IsMouseOverMe;
@@ -244,7 +250,7 @@ internal sealed class WarpContainer : RectangularMenuObject
     public override void GrafUpdate(float timeStacker)
     {
         base.GrafUpdate(timeStacker);
-        var den = WarpState.DenPosition;
+        string den = WarpState.DenPosition;
         _denLabel.label.text = Translator.TranslateWithSeparator(den == null
                 ? "Den Position: {0} #SEPARATOR# Hold shift + click a room to assign"
                 : "Den Position: {0} #SEPARATOR# Press C to clear")
@@ -281,7 +287,7 @@ internal sealed class WarpContainer : RectangularMenuObject
 
     private void ToggleStats()
     {
-        var show = !WarpState.Preferences.ShowStats;
+        bool show = !WarpState.Preferences.ShowStats;
         WarpState.UpdatePreferences(p => p with { ShowStats = show });
         _statsButton.Tint = StatsTint(show);
         RemoveStats();
@@ -307,8 +313,8 @@ internal sealed class WarpContainer : RectangularMenuObject
 
     private void ToggleFavourite()
     {
-        var region = WarpState.SelectedRegion;
-        var added = WarpState.ToggleFavourite(region);
+        string region = WarpState.SelectedRegion;
+        bool added = WarpState.ToggleFavourite(region);
         WarpLog.Info((added ? "Fav region: " : "Unfav region: ") + region);
         menu.PlaySound(added ? SoundID.MENU_Player_Join_Game : SoundID.MENU_Button_Standard_Button_Pressed);
         _picker.Refresh(region);
@@ -321,8 +327,8 @@ internal sealed class WarpContainer : RectangularMenuObject
     /// </summary>
     private void ToggleRegionList()
     {
-        var toDropdown = !_picker.DropdownMode;
-        var flipOrder = !toDropdown && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
+        bool toDropdown = !_picker.DropdownMode;
+        bool flipOrder = !toDropdown && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
         WarpState.UpdatePreferences(p => p with
         {
             DropdownMode = toDropdown,

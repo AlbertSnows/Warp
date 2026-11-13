@@ -42,14 +42,17 @@ internal sealed class RoomTiles
 
     private readonly Tile[,] _tiles;
 
-    private RoomTiles(Tile[,] tiles, int waterLevel)
+    /// <summary>A room from a grid that is already made. Used by <see cref="Parse"/>, and by the tests to build rooms by hand.</summary>
+    internal RoomTiles(Tile[,] tiles, int waterLevel)
     {
         _tiles = tiles;
         WaterLevel = waterLevel;
     }
 
+    /// <summary> How many tiles wide the room is. </summary>
     public int Width => _tiles.GetLength(0);
 
+    /// <summary> How many tiles high the room is. </summary>
     public int Height => _tiles.GetLength(1);
 
     /// <summary>The highest row that is under water, or -1 for a room with no water.</summary>
@@ -65,31 +68,34 @@ internal sealed class RoomTiles
     /// </summary>
     public static RoomTiles Parse(IReadOnlyList<string> lines)
     {
-        var header = lines[SizeLine].Split('|');
-        var size = header[0].Split('*');
-        var width = Convert.ToInt32(size[0], CultureInfo.InvariantCulture);
-        var height = Convert.ToInt32(size[1], CultureInfo.InvariantCulture);
-        var water = header[1] == "-1" ? -1 : Convert.ToInt32(header[1], CultureInfo.InvariantCulture);
+        string[] header = lines[SizeLine].Split('|');
+        string[] size = header[0].Split('*');
+        int width = Convert.ToInt32(size[0], CultureInfo.InvariantCulture);
+        int height = Convert.ToInt32(size[1], CultureInfo.InvariantCulture);
+        int water = header[1] == "-1" ? -1 : Convert.ToInt32(header[1], CultureInfo.InvariantCulture);
 
         var tiles = new Tile[width, height];
-        var cells = lines[TileLine].Split('|');
+        string[] cells = lines[TileLine].Split('|');
         int x = 0, y = height - 1;
-        for (var i = 0; i < cells.Length - 1 && x < width; i++)
+        for (int i = 0; i < cells.Length - 1 && x < width; i++)
         {
             tiles[x, y] = ParseTile(cells[i].Split(','));
-            if (--y < 0)
+            if (--y >= 0)
             {
-                x++;
-                y = height - 1;
+                continue;
             }
+
+            x++;
+            y = height - 1;
         }
         return new RoomTiles(tiles, water);
     }
 
+    /// <summary> A tile from one "terrain,flag,flag" cell of a room file. </summary>
     private static Tile ParseTile(string[] fields)
     {
         var tile = new Tile((Terrain)int.Parse(fields[0], NumberStyles.Any, CultureInfo.InvariantCulture), false, false, false, 0);
-        for (var i = 1; i < fields.Length; i++)
+        for (int i = 1; i < fields.Length; i++)
         {
             tile = fields[i] switch
             {
@@ -107,8 +113,6 @@ internal sealed class RoomTiles
         return tile;
     }
 
-    public static RoomTiles Of(Tile[,] tiles, int waterLevel = -1) => new(tiles, waterLevel);
-
     /// <summary>
     /// The tile at a position. Past the edge of the room it is the nearest tile inside, except that a shortcut entrance
     /// or shortcut path there reads as plain solid rock (or as its own terrain, without the shortcut).
@@ -119,7 +123,7 @@ internal sealed class RoomTiles
         {
             return _tiles[x, y];
         }
-        var edge = _tiles[Math.Min(Math.Max(x, 0), Width - 1), Math.Min(Math.Max(y, 0), Height - 1)];
+        Tile edge = _tiles[Math.Min(Math.Max(x, 0), Width - 1), Math.Min(Math.Max(y, 0), Height - 1)];
         if (edge.Terrain != Terrain.ShortcutEntrance && edge.ShortCut == 0)
         {
             return edge;

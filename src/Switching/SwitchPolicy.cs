@@ -29,7 +29,7 @@ internal static class SwitchPolicy
         {
             return new SwitchStep(SwitchState.Idle, SwitchAction.Drop);
         }
-        var timedOut = facts.Now - state.StageStartTime > timeoutSeconds;
+        bool timedOut = facts.Now - state.StageStartTime > timeoutSeconds;
 
         if (state.Stage == SwitchStage.LoadingWorld)
         {
@@ -50,10 +50,9 @@ internal static class SwitchPolicy
     /// <summary>
     /// Keep waiting, or, once the stage has run out of time, give up with that stage's own timeout action.
     /// </summary>
-    private static SwitchStep Waiting(SwitchState state, bool timedOut, SwitchAction timeout)
-    {
-        return timedOut ? new SwitchStep(SwitchState.Idle, timeout) : new SwitchStep(state, SwitchAction.Wait);
-    }
+    private static SwitchStep Waiting(SwitchState state, bool timedOut, SwitchAction timeout) => timedOut
+        ? new SwitchStep(SwitchState.Idle, timeout)
+        : new SwitchStep(state, SwitchAction.Wait);
 
     /// <summary>
     /// How long a switch has been going, for the log, for example "2.4 seconds, 96 frames". Always uses a decimal
@@ -61,8 +60,8 @@ internal static class SwitchPolicy
     /// </summary>
     public static string Elapsed(SwitchState state, float now, int frame)
     {
-        var seconds = now - state.StartTime;
-        var frames = frame - state.StartFrame;
+        float seconds = now - state.StartTime;
+        int frames = frame - state.StartFrame;
         return seconds.ToString("0.0", CultureInfo.InvariantCulture) + " seconds, " + frames + " frames";
     }
 }

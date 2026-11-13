@@ -1,4 +1,3 @@
-#nullable enable
 namespace Warp.Model;
 
 /// <summary>

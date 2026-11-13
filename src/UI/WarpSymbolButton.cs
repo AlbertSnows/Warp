@@ -1,5 +1,4 @@
 using Menu;
-using RWCustom;
 using UnityEngine;
 
 namespace Warp.UI;
@@ -7,6 +6,7 @@ namespace Warp.UI;
 /// <summary>A button with a picture on it, drawn in a color of its own.</summary>
 internal sealed class WarpSymbolButton : SymbolButton
 {
+    /// <summary> The color of the symbol and its outline. </summary>
     public Color Tint { get; set; } = new(0.7f, 0.7f, 0.7f);
 
     public WarpSymbolButton(Menu.Menu menu, MenuObject owner, string symbolName, string signal, Vector2 pos, float size)
@@ -16,11 +16,12 @@ internal sealed class WarpSymbolButton : SymbolButton
         this.size = roundedRect.size;
     }
 
+    /// <summary> The symbol's color now: its tint, brighter while the pointer is on it. </summary>
     public override Color MyColor(float timeStacker)
     {
         if (!buttonBehav.greyedOut)
         {
-            var glow = Mathf.Max(
+            float glow = Mathf.Max(
                 Mathf.Lerp(buttonBehav.lastCol, buttonBehav.col, timeStacker),
                 Mathf.Lerp(buttonBehav.lastFlash, buttonBehav.flash, timeStacker));
             var from = Color.Lerp(Color.Lerp(Menu.Menu.MenuColor(Menu.Menu.MenuColors.DarkGrey).rgb, Tint, 0.7f), Tint, glow);
@@ -34,6 +35,7 @@ internal sealed class WarpSymbolButton : SymbolButton
             Menu.Menu.MenuColor(Menu.Menu.MenuColors.VeryDarkGrey), Menu.Menu.MenuColor(Menu.Menu.MenuColors.Black), black).rgb;
     }
 
+    /// <summary> Colors the symbol. </summary>
     public override void GrafUpdate(float timeStacker)
     {
         base.GrafUpdate(timeStacker);

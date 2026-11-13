@@ -2,7 +2,6 @@ using System;
 using System.Security;
 using System.Security.Permissions;
 using BepInEx;
-using UnityEngine;
 using Warp.Hooks;
 using Warp.Util;
 
@@ -16,18 +15,17 @@ using Warp.Util;
 namespace Warp;
 
 /// <summary>
-/// The mod's entry point. The plugin id is the original author's, so other mods that depend on Warp by id keep working.
+/// The mod's entry point. The plugin id is this fork's own, so it can be installed beside Lee Moriya's Warp Menu
+/// without BepInEx treating the two as one plugin. Both mods hook the same game methods, so only one should be enabled.
 /// </summary>
-[BepInPlugin("LeeMoriya.Warp", "Warp", "1.9.1")]
+[BepInPlugin("AJ_Snow.WarpForMeadow", "Warp For Meadow", "1.9.1")]
 public class WarpMod : BaseUnityPlugin
 {
     private bool _initialized;
 
-    public void OnEnable()
-    {
-        On.RainWorld.OnModsInit += RainWorldOnModsInit;
-    }
+    public void OnEnable() => On.RainWorld.OnModsInit += RainWorldOnModsInit;
 
+    /// <summary> Sets Warp up once the game has loaded its mods: installs the hooks and loads the sprites. </summary>
     private void RainWorldOnModsInit(On.RainWorld.orig_OnModsInit orig, RainWorld self)
     {
         orig(self);

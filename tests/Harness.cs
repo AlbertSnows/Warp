@@ -29,7 +29,7 @@ internal static class Harness
     /// <summary>Like Check, but compares two values and, on a failure, shows both.</summary>
     public static void CheckEqual<T>(string name, T expected, T actual)
     {
-        var ok = EqualityComparer<T>.Default.Equals(expected, actual);
+        bool ok = EqualityComparer<T>.Default.Equals(expected, actual);
         Check(name, ok);
         if (ok)
         {
@@ -44,8 +44,8 @@ internal static class Harness
     {
         var expectedList = new List<T>(expected);
         var actualList = new List<T>(actual);
-        var ok = expectedList.Count == actualList.Count;
-        for (var i = 0; ok && i < expectedList.Count; i++)
+        bool ok = expectedList.Count == actualList.Count;
+        for (int i = 0; ok && i < expectedList.Count; i++)
         {
             ok = EqualityComparer<T>.Default.Equals(expectedList[i], actualList[i]);
         }
@@ -86,7 +86,7 @@ internal static class Harness
 
     private static IEnumerable<string> ToStrings(System.Collections.IEnumerable items)
     {
-        foreach (var item in items)
+        foreach (object item in items)
         {
             yield return item?.ToString() ?? "null";
         }

@@ -16,10 +16,10 @@ internal static class RoomListExport
         var text = new StringBuilder();
         text.AppendLine("---WARP Room List Export---");
         text.AppendLine();
-        foreach (var region in regions)
+        foreach (KeyValuePair<string, RoomInfo[]> region in regions)
         {
             text.Append("---" + region.Key + "---");
-            foreach (var room in region.Value)
+            foreach (RoomInfo room in region.Value)
             {
                 text.AppendLine();
                 text.Append(room.Name + ": | Cameras: " + room.Cameras + ", Subregion: " + room.Subregion);

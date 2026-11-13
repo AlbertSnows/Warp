@@ -25,16 +25,16 @@ internal static class ColorFile
     /// </summary>
     public static ColorPalette Parse(IEnumerable<string> lines, ColorPalette start, Action<string>? onBadLine = null)
     {
-        var types = start.Types.ToArray();
-        var sizes = start.Sizes.ToArray();
+        Hsl[] types = [.. start.Types];
+        Hsl[] sizes = [.. start.Sizes];
         var regions = new Dictionary<string, List<Hsl>>();
         string? section = null;
         string? region = null;
-        var index = 0;
+        int index = 0;
 
-        foreach (var raw in lines)
+        foreach (string raw in lines)
         {
-            var line = raw.Trim();
+            string line = raw.Trim();
             if (line.Length == 0 || line.StartsWith("//"))
             {
                 continue;
@@ -53,10 +53,10 @@ internal static class ColorFile
             if (section == SubregionSection && line.StartsWith("["))
             {
                 region = line.Trim('[', ']');
-                regions[region] = new List<Hsl>();
+                regions[region] = [];
                 continue;
             }
-            if (!TryParseColor(line, out var color))
+            if (!TryParseColor(line, out Hsl color))
             {
                 onBadLine?.Invoke(line);
                 if (section == SubregionSection && region != null)
@@ -82,13 +82,14 @@ internal static class ColorFile
         }
 
         var subregions = start.Subregions.ToDictionary(pair => pair.Key, pair => pair.Value);
-        foreach (var pair in regions)
+        foreach (KeyValuePair<string, List<Hsl>> pair in regions)
         {
-            subregions[pair.Key] = pair.Value.ToArray();
+            subregions[pair.Key] = [.. pair.Value];
         }
         return new ColorPalette(types, sizes, subregions);
     }
 
+    /// <summary> The text of the colors file for the palette. The inverse of <see cref="Parse"/>. </summary>
     public static string Serialize(ColorPalette palette)
     {
         var text = new StringBuilder();
@@ -97,7 +98,7 @@ internal static class ColorFile
         text.AppendLine(SizeSection);
         palette.Sizes.ToList().ForEach(color => text.AppendLine(Format(color)));
         text.AppendLine(SubregionSection);
-        foreach (var pair in palette.Subregions)
+        foreach (KeyValuePair<string, Hsl[]> pair in palette.Subregions)
         {
             text.AppendLine("[" + pair.Key + "]");
             pair.Value.ToList().ForEach(color => text.AppendLine(Format(color)));
@@ -106,10 +107,9 @@ internal static class ColorFile
         return text.ToString();
     }
 
+    /// <summary> A color as "hue:saturation:lightness", each rounded to two places. </summary>
     private static string Format(Hsl color)
-    {
-        return string.Join(":", Round(color.Hue), Round(color.Saturation), Round(color.Lightness));
-    }
+        => string.Join(":", Round(color.Hue), Round(color.Saturation), Round(color.Lightness));
 
     private static string Round(float value) => Math.Round(value, 2).ToString(CultureInfo.InvariantCulture);
 
@@ -120,13 +120,13 @@ internal static class ColorFile
     private static bool TryParseColor(string line, out Hsl color)
     {
         color = default;
-        var fields = line.Split(':');
+        string[] fields = line.Split(':');
         if (fields.Length < 3)
         {
             return false;
         }
-        var numbers = new float[3];
-        for (var i = 0; i < 3; i++)
+        float[] numbers = new float[3];
+        for (int i = 0; i < 3; i++)
         {
             if (!TryParseNumber(fields[i], out numbers[i]))
             {
@@ -137,6 +137,10 @@ internal static class ColorFile
         return true;
     }
 
+    /// <summary>
+    /// Reads a number written with a decimal point, or with a decimal comma as an older file on another language
+    /// may have it.
+    /// </summary>
     private static bool TryParseNumber(string text, out float number)
     {
         return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out number)

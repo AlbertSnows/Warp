@@ -23,13 +23,13 @@ internal sealed class WarpButton : ButtonTemplate
         get;
     }
 
-    public MenuLabel Label
+    private MenuLabel Label
     {
         get;
     }
 
     /// <summary>The message sent up the menu when the button is clicked.</summary>
-    public string Signal
+    private string Signal
     {
         get;
     }
@@ -55,36 +55,41 @@ internal sealed class WarpButton : ButtonTemplate
         set => Label.text = value;
     }
 
+    /// <summary> Animates the button's size and fill as the pointer comes and goes. </summary>
     public override void Update()
     {
         base.Update();
         buttonBehav.Update();
-        var bump = buttonBehav.sizeBump + 0.5f * Mathf.Sin(buttonBehav.extraSizeBump * Mathf.PI);
-        var pressed = buttonBehav.clicked ? 0f : 1f;
+        float bump = buttonBehav.sizeBump + 0.5f * Mathf.Sin(buttonBehav.extraSizeBump * Mathf.PI);
+        float pressed = buttonBehav.clicked ? 0f : 1f;
         _fill.fillAlpha = Mathf.Lerp(0.3f, 0.6f, buttonBehav.col);
         _fill.addSize = new Vector2(10f, 6f) * bump * pressed;
         _outline.addSize = new Vector2(2f, -2f) * bump * pressed;
     }
 
+    /// <summary> Draws the label, fill and outline in the button's colors. </summary>
     public override void GrafUpdate(float timeStacker)
     {
         base.GrafUpdate(timeStacker);
         Label.label.color = MyColor(timeStacker);
-        var flash = Mathf.Lerp(buttonBehav.lastFlash, buttonBehav.flash, timeStacker);
+        float flash = Mathf.Lerp(buttonBehav.lastFlash, buttonBehav.flash, timeStacker);
         var fillColor = Color.Lerp(Menu.Menu.MenuRGB(Menu.Menu.MenuColors.Black), Menu.Menu.MenuRGB(Menu.Menu.MenuColors.White), flash);
-        for (var i = 0; i < 9; i++)
+        for (int i = 0; i < 9; i++)
         {
             _fill.sprites[i].color = fillColor;
         }
-        var pulse = 0.5f + 0.5f * Mathf.Sin(Mathf.Lerp(buttonBehav.lastSin, buttonBehav.sin, timeStacker) / 30f * Mathf.PI * 2f);
+        float pulse = 0.5f + 0.5f * Mathf.Sin(Mathf.Lerp(buttonBehav.lastSin, buttonBehav.sin, timeStacker) / 30f * Mathf.PI * 2f);
         pulse *= buttonBehav.sizeBump;
-        for (var i = 0; i < 8; i++)
+        for (int i = 0; i < 8; i++)
         {
             _outline.sprites[i].color = MyColor(timeStacker);
             _outline.sprites[i].alpha = pulse;
         }
     }
 
+    /// <summary>
+    /// The button's color now: its tint, lightened while the pointer is on it and darkened when greyed out.
+    /// </summary>
     public override Color MyColor(float timeStacker)
     {
         var dark = new Color(0.05f, 0.05f, 0.05f);
@@ -92,12 +97,13 @@ internal sealed class WarpButton : ButtonTemplate
         {
             return Color.Lerp(Tint, dark, black);
         }
-        var glow = Mathf.Max(
+        float glow = Mathf.Max(
             Mathf.Lerp(buttonBehav.lastCol, buttonBehav.col, timeStacker),
             Mathf.Lerp(buttonBehav.lastFlash, buttonBehav.flash, timeStacker));
         var lit = Color.Lerp(Tint, Menu.Menu.MenuColor(Menu.Menu.MenuColors.White).rgb, glow);
         return Color.Lerp(lit, dark, black);
     }
 
+    /// <summary> Sends the button's signal up the menu. </summary>
     public override void Clicked() => Singal(this, Signal);
 }

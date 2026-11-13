@@ -37,17 +37,17 @@ internal static class PauseMenuGlue
         {
             return;
         }
-        var show = WarpState.Preferences.ShowMenu;
+        bool show = WarpState.Preferences.ShowMenu;
         if (show && menu.controlMap != null)
         {
             SetControlMapY(menu, HiddenY, HiddenY);
         }
-        var player = game.Players.Count > 0 ? game.Players[0] : null;
+        AbstractCreature player = game.Players.Count > 0 ? game.Players[0] : null;
         if (player?.realizedCreature == null || player.realizedCreature.inShortcut)
         {
             return;
         }
-        var page = menu.pages[0];
+        Page page = menu.pages[0];
         page.subObjects.Add(new WarpContainer(menu, page, page.pos + new Vector2(20f, show ? 0f : HiddenY)));
 
         var toggle = new WarpButton(menu, page, "", ToggleSignal,
@@ -108,25 +108,33 @@ internal static class PauseMenuGlue
         menu.Singal(null, "CONTINUE");
     }
 
+    /// <summary>
+    /// Hides or shows the Warp menu, saves the choice, and swaps the game's controls picture in or out of its
+    /// place.
+    /// </summary>
     private static void ToggleVisibility(PauseMenu menu, WarpButton button)
     {
-        var show = !WarpState.Preferences.ShowMenu;
+        bool show = !WarpState.Preferences.ShowMenu;
         WarpState.UpdatePreferences(p => p with { ShowMenu = show });
         ShowToggleState(button, show);
-        if (menu.controlMap != null)
+        if (menu.controlMap == null)
         {
-            // The game's own controls picture takes the Warp menu's place while it is hidden
-            var y = show ? HiddenY : 380f;
-            SetControlMapY(menu, y, y);
+            return;
         }
+
+        // The game's own controls picture takes the Warp menu's place while it is hidden
+        float y = show ? HiddenY : 380f;
+        SetControlMapY(menu, y, y);
     }
 
+    /// <summary> Labels and colors the toggle button for the menu being shown (HIDE) or hidden (WARP). </summary>
     private static void ShowToggleState(WarpButton button, bool menuShown)
     {
         button.Text = Translator.Translate(menuShown ? "HIDE" : "WARP");
         button.Tint = Menu.Menu.MenuRGB(menuShown ? Menu.Menu.MenuColors.MediumGrey : Menu.Menu.MenuColors.VeryDarkGrey);
     }
 
+    /// <summary> Moves the game's controls picture up or down, which is how it is shown and hidden. </summary>
     private static void SetControlMapY(PauseMenu menu, float y, float lastY)
     {
         menu.controlMap.pos.y = y;

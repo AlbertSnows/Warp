@@ -16,11 +16,12 @@ internal enum BorderMode
 internal static class ExportOptions
 {
     /// <summary>Pixels of border on each side of an exported picture.</summary>
-    public const int BorderWidth = 3;
+    private const int BorderWidth = 3;
 
     /// <summary>The next mode when the border button is pressed, going round.</summary>
     public static BorderMode Next(BorderMode mode) => mode == BorderMode.NotRooms ? BorderMode.None : mode + 1;
 
+    /// <summary> Whether a room of this type gets a border under the chosen mode. </summary>
     public static bool HasBorder(BorderMode mode, RoomType type) => mode switch
     {
         BorderMode.All => true,
@@ -41,7 +42,7 @@ internal static class ExportOptions
     /// <summary>The picture to save: the preview with its border if it has one, enlarged by the scale.</summary>
     public static PixelCanvas Compose(PixelCanvas preview, int scale, Rgba? border)
     {
-        var bordered = border is { } color ? preview.WithBorder(BorderWidth, color) : preview;
+        PixelCanvas bordered = border is { } color ? preview.WithBorder(BorderWidth, color) : preview;
         return bordered.Scaled(scale);
     }
 
@@ -52,12 +53,12 @@ internal static class ExportOptions
     public static TileCoord? TileAt(
         float pointerX, float pointerY, float spriteX, float spriteY, float spriteScale, int width, int height)
     {
-        var x = (pointerX - spriteX) / (spriteScale * PreviewPainter.TileSize) + width / 2;
-        var y = (pointerY - spriteY) / (spriteScale * PreviewPainter.TileSize) + height / 2;
+        float x = (pointerX - spriteX) / (spriteScale * PreviewPainter.TileSize) + width / 2f;
+        float y = (pointerY - spriteY) / (spriteScale * PreviewPainter.TileSize) + height / 2f;
         if (x <= 0 || x >= width || y <= 0 || y >= height)
         {
             return null;
         }
-        return new TileCoord((int)System.Math.Round(x), (int)System.Math.Round(y));
+        return new TileCoord((int)System.Math.Floor(x), (int)System.Math.Floor(y));
     }
 }

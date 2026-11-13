@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 
 namespace Warp.Preview;
@@ -12,15 +13,15 @@ internal static class PreviewPainter
     /// <summary>Pixels along a tile's edge.</summary>
     public const int TileSize = 3;
 
-    private static readonly Rgba Background = Rgba.Grey(0.35f);
-    private static readonly Rgba WallBehind = Rgba.Grey(0.25f);
-    private static readonly Rgba Rock = Rgba.Grey(0.2f);
-    private static readonly Rgba FloorTop = Rgba.Grey(0.21f);
-    private static readonly Rgba ShortcutPath = Rgba.Grey(0.5f);
-    private static readonly Rgba Water = new(0f, 0.5f, 1f);
+    private static readonly Rgba _background = Rgba.Grey(0.35f);
+    private static readonly Rgba _wallBehind = Rgba.Grey(0.25f);
+    private static readonly Rgba _rock = Rgba.Grey(0.2f);
+    private static readonly Rgba _floorTop = Rgba.Grey(0.21f);
+    private static readonly Rgba _shortcutPath = Rgba.Grey(0.5f);
+    private static readonly Rgba _water = new(0f, 0.5f, 1f);
     private const float WaterTint = 0.2f;
 
-    private static readonly Dictionary<int, Rgba> ShortcutMarks = new()
+    private static readonly Dictionary<int, Rgba> _shortcutMarks = new()
     {
         [2] = new Rgba(0.2f, 1f, 0.2f),
         [3] = new Rgba(1f, 0.2f, 0.2f),
@@ -28,14 +29,15 @@ internal static class PreviewPainter
         [5] = new Rgba(1f, 1f, 0.2f)
     };
 
-    private static readonly (int X, int Y)[] Plus = { (1, 0), (0, 1), (2, 1), (1, 2), (1, 1) };
+    private static readonly (int X, int Y)[] _plus = [(1, 0), (0, 1), (2, 1), (1, 2), (1, 1)];
 
+    /// <summary> Draws the room, three pixels to a tile. </summary>
     public static PixelCanvas Paint(RoomTiles room)
     {
-        var canvas = new PixelCanvas(room.Width * TileSize, room.Height * TileSize, Background);
-        for (var x = 0; x < room.Width; x++)
+        var canvas = new PixelCanvas(room.Width * TileSize, room.Height * TileSize, _background);
+        for (int x = 0; x < room.Width; x++)
         {
-            for (var y = 0; y < room.Height; y++)
+            for (int y = 0; y < room.Height; y++)
             {
                 PaintTile(canvas, room, x, y);
             }
@@ -43,31 +45,35 @@ internal static class PreviewPainter
         return canvas;
     }
 
+    /// <summary>
+    /// Draws one tile: wall behind, rock, slope, floor, beams, water tint, then shortcut marks, in that order, each
+    /// over the last.
+    /// </summary>
     private static void PaintTile(PixelCanvas canvas, RoomTiles room, int tx, int ty)
     {
-        var tile = room.At(tx, ty);
+        Tile tile = room.At(tx, ty);
         int x = tx * TileSize, y = ty * TileSize;
 
         if (tile.WallBehind)
         {
-            canvas.Fill(x, y, 3, 3, WallBehind);
+            canvas.Fill(x, y, 3, 3, _wallBehind);
         }
         if (tile.Terrain == Terrain.Solid)
         {
-            canvas.Fill(x, y, 3, 3, Rock);
+            canvas.Fill(x, y, 3, 3, _rock);
         }
         PaintSlope(canvas, room.SlopeAt(tx, ty), x, y);
         if (tile.Terrain == Terrain.Floor)
         {
-            canvas.Fill(x, y + 1, 3, 2, FloorTop);
+            canvas.Fill(x, y + 1, 3, 2, _floorTop);
         }
         if (tile.VerticalBeam)
         {
-            canvas.Fill(x + 1, y, 1, 3, Rock);
+            canvas.Fill(x + 1, y, 1, 3, _rock);
         }
         if (tile.HorizontalBeam)
         {
-            canvas.Fill(x, y + 1, 3, 1, Rock);
+            canvas.Fill(x, y + 1, 3, 1, _rock);
         }
         if (ty < room.WaterLevel)
         {
@@ -97,36 +103,45 @@ internal static class PreviewPainter
             case SlopeDirection.DownLeft:
                 Slope(canvas, x + 1, y + 1, x, y + 2, x + 2, y);
                 break;
+            case SlopeDirection.Broken:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
         }
     }
 
+    /// <summary> Draws one slope: a 2 by 2 block of rock, and one extra pixel at each of two corners. </summary>
     private static void Slope(PixelCanvas canvas, int blockX, int blockY, int ax, int ay, int bx, int by)
     {
-        canvas.Fill(blockX, blockY, 2, 2, Rock);
-        canvas.Set(ax, ay, Rock);
-        canvas.Set(bx, by, Rock);
+        canvas.Fill(blockX, blockY, 2, 2, _rock);
+        canvas.Set(ax, ay, _rock);
+        canvas.Set(bx, by, _rock);
     }
 
+    /// <summary> Tints a tile's pixels blue, to show it is under water. </summary>
     private static void TintWater(PixelCanvas canvas, int x, int y)
     {
-        for (var dy = 0; dy < TileSize; dy++)
+        for (int dy = 0; dy < TileSize; dy++)
         {
-            for (var dx = 0; dx < TileSize; dx++)
+            for (int dx = 0; dx < TileSize; dx++)
             {
-                canvas.Set(x + dx, y + dy, Rgba.Lerp(canvas.Get(x + dx, y + dy), Water, WaterTint));
+                canvas.Set(x + dx, y + dy, Rgba.Lerp(canvas.Get(x + dx, y + dy), _water, WaterTint));
             }
         }
     }
 
+    /// <summary>
+    /// Marks a tile that is part of a shortcut: a dot for the path, a colored plus for the end of it.
+    /// </summary>
     private static void PaintShortcut(PixelCanvas canvas, int shortcut, int x, int y)
     {
         if (shortcut == 1)
         {
-            canvas.Set(x + 1, y + 1, ShortcutPath);
+            canvas.Set(x + 1, y + 1, _shortcutPath);
         }
-        else if (ShortcutMarks.TryGetValue(shortcut, out var color))
+        else if (_shortcutMarks.TryGetValue(shortcut, out Rgba color))
         {
-            foreach (var (dx, dy) in Plus)
+            foreach ((int dx, int dy) in _plus)
             {
                 canvas.Set(x + dx, y + dy, color);
             }
@@ -154,12 +169,13 @@ internal static class PreviewPainter
         }
     }
 
+    /// <summary> Draws a short line in the shortcut color, with the dot in the middle of the tile. </summary>
     private static void Line(PixelCanvas canvas, int x, int y, params (int X, int Y)[] pixels)
     {
-        foreach (var (dx, dy) in pixels)
+        foreach ((int dx, int dy) in pixels)
         {
-            canvas.Set(x + dx, y + dy, ShortcutPath);
+            canvas.Set(x + dx, y + dy, _shortcutPath);
         }
-        canvas.Set(x + 1, y + 1, ShortcutPath);
+        canvas.Set(x + 1, y + 1, _shortcutPath);
     }
 }

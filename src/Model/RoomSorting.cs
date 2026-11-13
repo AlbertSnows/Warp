@@ -16,9 +16,11 @@ internal static class RoomSorting
     /// </summary>
     public static RoomInfo[] Sort(IEnumerable<RoomInfo> rooms, Grouping grouping)
     {
-        return rooms
-            .OrderBy(room => room.GroupKey(grouping))
-            .ThenBy(room => room.Name, StringComparer.CurrentCulture)
-            .ToArray();
+        return
+        [
+            .. rooms
+                .OrderBy(room => room.GroupKey(grouping))
+                .ThenBy(room => room.Name, StringComparer.CurrentCulture)
+        ];
     }
 }

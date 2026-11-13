@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using Warp.Model;
 using static Warp.Tests.Harness;
@@ -20,29 +18,29 @@ internal static class LayoutTests
     }
 
     private static RoomInfo[] Rooms(int count, RoomType type = RoomType.Room, string prefix = "SU_R") =>
-        Enumerable.Range(0, count).Select(i => new RoomInfo(prefix + i.ToString("000"), type)).ToArray();
+        [.. Enumerable.Range(0, count).Select(i => new RoomInfo(prefix + i.ToString("000"), type))];
 
     private static void GridTests()
     {
         var layout = RoomGridLayout.Compute(Rooms(3), Grouping.Type, 1000f, 700f);
         CheckSequence("a column runs down from the top right",
-            new[] { (920f, 620f), (920f, 590f), (920f, 560f) }, layout.Buttons.Select(b => (b.X, b.Y)));
-        CheckSequence("the heading sits above the column", new[] { (950f, 655f) }, layout.Labels.Select(l => (l.X, l.Y)));
-        CheckSequence("buttons point back at their rooms", new[] { 0, 1, 2 }, layout.Buttons.Select(b => b.RoomIndex));
+            [(920f, 620f), (920f, 590f), (920f, 560f)], layout.Buttons.Select(b => (b.X, b.Y)));
+        CheckSequence("the heading sits above the column", [(950f, 655f)], layout.Labels.Select(l => (l.X, l.Y)));
+        CheckSequence("buttons point back at their rooms", [0, 1, 2], layout.Buttons.Select(b => b.RoomIndex));
         Check("a short list needs no second page", !layout.HasSecondPage);
 
-        var empty = RoomGridLayout.Compute(Array.Empty<RoomInfo>(), Grouping.Type, 1000f, 700f);
+        var empty = RoomGridLayout.Compute([], Grouping.Type, 1000f, 700f);
         Check("no rooms, no buttons or headings", empty.Buttons.Length == 0 && empty.Labels.Length == 0);
     }
 
     private static void GridGroupTests()
     {
-        var rooms = Rooms(2).Concat(Rooms(1, RoomType.Shelter, "SU_S")).ToArray();
+        RoomInfo[] rooms = [.. Rooms(2), .. Rooms(1, RoomType.Shelter, "SU_S")];
         var layout = RoomGridLayout.Compute(rooms, Grouping.Type, 1000f, 700f);
         CheckSequence("a new group starts a new column, pulled in by 5",
-            new[] { (920f, 620f), (920f, 590f), (850f, 620f) }, layout.Buttons.Select(b => (b.X, b.Y)));
+            [(920f, 620f), (920f, 590f), (850f, 620f)], layout.Buttons.Select(b => (b.X, b.Y)));
         CheckSequence("each group gets a heading with its key",
-            new[] { ((int)RoomType.Room, 950f), ((int)RoomType.Shelter, 880f) },
+            [((int)RoomType.Room, 950f), ((int)RoomType.Shelter, 880f)],
             layout.Labels.Select(l => (l.GroupKey, l.X)));
 
         var tall = RoomGridLayout.Compute(Rooms(22), Grouping.Type, 1000f, 700f);
@@ -50,12 +48,12 @@ internal static class LayoutTests
         CheckEqual("the 22nd starts the next column, pulled in by 10", (855f, 620f),
             (tall.Buttons[21].X, tall.Buttons[21].Y));
 
-        var noButton = new[] { new RoomInfo("OFFSCREEN", Subregion: 0), new RoomInfo("SU_A", Subregion: 1) };
+        RoomInfo[] noButton = [new RoomInfo("OFFSCREEN", Subregion: 0), new RoomInfo("SU_A", Subregion: 1)];
         var bySubregion = RoomGridLayout.Compute(noButton, Grouping.Subregion, 1000f, 700f);
         CheckEqual("a heading with no buttons under it pushes the next group out by 5 for subregions",
             (945f, 915f), (bySubregion.Labels[1].X, bySubregion.Buttons[0].X));
         var byType = RoomGridLayout.Compute(
-            new[] { new RoomInfo("OFFSCREEN"), new RoomInfo("SU_A", RoomType.Shelter) }, Grouping.Type, 1000f, 700f);
+            [new RoomInfo("OFFSCREEN"), new RoomInfo("SU_A", RoomType.Shelter)], Grouping.Type, 1000f, 700f);
         CheckEqual("and does not for the other groupings", (950f, 920f), (byType.Labels[1].X, byType.Buttons[0].X));
     }
 
@@ -81,13 +79,13 @@ internal static class LayoutTests
     private static void LeftPanelDropdownTests()
     {
         var layout = LeftPanelLayout.Compute(Input());
-        CheckEqual("the stats button is near the top", 728f, layout.StatsButtonY);
+        CheckEqual("the stats button is near the top", 728f, LeftPanelLayout.StatsButtonYFor(800f));
         CheckEqual("the filter row sits under the dropdown", 641f, layout.FilterLabelY);
         CheckEqual("the toggles sit above the filter label", 656f, layout.ToggleY);
-        CheckSequence("sort and view rows are 30 apart", new[] { 606f, 576f, 546f }, layout.ButtonRowYs);
+        CheckSequence("sort and view rows are 30 apart", [606f, 576f, 546f], layout.ButtonRowYs);
         CheckEqual("the key label is under the last row", 531f, layout.KeyLabelY);
-        CheckSequence("key lines fall in a column", new[] { 516f, 501f, 486f }, layout.ColorKeyYs);
-        CheckSequence("size keys run side by side", new[] { 516f, 516f, 516f },
+        CheckSequence("key lines fall in a column", [516f, 501f, 486f], layout.ColorKeyYs);
+        CheckSequence("size keys run side by side", [516f, 516f, 516f],
             LeftPanelLayout.Compute(Input(row: true)).ColorKeyYs);
         Check("no subregion list unless asked for", layout.SubregionLabelY == null && layout.SubregionYs.Length == 0);
 
@@ -96,7 +94,7 @@ internal static class LayoutTests
 
         var withSubregions = LeftPanelLayout.Compute(Input(subregions: 2, stats: true));
         CheckEqual("the subregion list hangs under the key", 461f, withSubregions.SubregionLabelY);
-        CheckSequence("its lines are 15 apart", new[] { 441f, 426f }, withSubregions.SubregionYs);
+        CheckSequence("its lines are 15 apart", [441f, 426f], withSubregions.SubregionYs);
         CheckEqual("stats go under the list when there is room", new StatsPlacement(0f, 0f, 406f), withSubregions.Stats);
 
         var crowded = LeftPanelLayout.Compute(Input(height: 600f, subregions: 2, stats: true));
@@ -108,8 +106,7 @@ internal static class LayoutTests
     private static void LeftPanelButtonTests()
     {
         var layout = LeftPanelLayout.Compute(Input(dropdown: false, regions: 60, stats: true));
-        CheckEqual("the region grid pushes the controls down by its height", 27f * 14f - 5f, layout.DropOffset);
-        CheckEqual("the filter row follows", 696f - 65f - (27f * 14f - 5f), layout.FilterLabelY);
+        CheckEqual("the region grid pushes the controls down by its height", 696f - 65f - (27f * 14f - 5f), layout.FilterLabelY);
         CheckEqual("stats sit beside a wide grid", new StatsPlacement(130f, 0f, 713f), layout.Stats);
         CheckEqual("and closer beside a narrower one", new StatsPlacement(110f, 0f, 713f),
             LeftPanelLayout.Compute(Input(dropdown: false, regions: 30, stats: true)).Stats);

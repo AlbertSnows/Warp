@@ -28,8 +28,8 @@ internal static class RegionFiles
     {
         var rooms = new List<RoomInfo>();
         var seen = new HashSet<string>();
-        var inRooms = false;
-        foreach (var line in lines)
+        bool inRooms = false;
+        foreach (string line in lines)
         {
             if (line == RoomsEnd)
             {
@@ -37,7 +37,7 @@ internal static class RegionFiles
             }
             if (inRooms && line.Length > 0 && line[0] != ' ' && line[0] != '/')
             {
-                var room = ParseRoomLine(line, region);
+                RoomInfo? room = ParseRoomLine(line, region);
                 if (room != null && seen.Add(room.Name) && !spoilers.Contains(room.Name))
                 {
                     rooms.Add(room);
@@ -51,10 +51,11 @@ internal static class RegionFiles
         return rooms;
     }
 
+    /// <summary> The room on one line of a world file, or null if the line is for a room of another region. </summary>
     private static RoomInfo? ParseRoomLine(string line, string region)
     {
-        var parts = line.Split(new[] { " : " }, StringSplitOptions.None);
-        var first = parts[0];
+        string[] parts = line.Split([" : "], StringSplitOptions.None);
+        string first = parts[0];
         if (!first.Contains(region + "_") && !first.Contains(GatePrefix))
         {
             return null;
@@ -65,7 +66,7 @@ internal static class RegionFiles
     /// <summary>
     /// A room name without the condition in front of it: "{Spear}SU_A01" and "(White)SU_A01" both give "SU_A01".
     /// </summary>
-    internal static string StripCondition(string name)
+    private static string StripCondition(string name)
     {
         if (name.Contains("}"))
         {
@@ -74,6 +75,7 @@ internal static class RegionFiles
         return name.Contains(")") ? name.Split(')')[1] : name;
     }
 
+    /// <summary> The room type a world file tag stands for. A missing or unknown tag is an ordinary room. </summary>
     private static RoomType TypeFromTag(string tag) => tag switch
     {
         "GATE" => RoomType.Gate,
@@ -88,9 +90,7 @@ internal static class RegionFiles
     /// The room names in a spoilers file. Lines that start with "//" are comments.
     /// </summary>
     public static HashSet<string> ParseSpoilers(IEnumerable<string> lines)
-    {
-        return new HashSet<string>(lines.Where(line => !line.StartsWith("//")).Select(line => line.Trim()));
-    }
+        => [.. lines.Where(line => !line.StartsWith("//")).Select(line => line.Trim())];
 
     /// <summary>
     /// How many screens a room has, from the lines of its room file. The camera positions are on the fourth line,
@@ -114,35 +114,32 @@ internal static class RegionFiles
     public static string[] ParseSubregionNames(
         IEnumerable<string> lines, string noneLabel, Func<string, string> spaceAfterColon)
     {
-        var names = new List<string> { noneLabel };
-        foreach (var line in lines.Where(line => line.StartsWith("Subregion")))
-        {
-            var fields = SplitField(spaceAfterColon(line));
-            if (fields.Length > 1)
-            {
-                names.Add(fields[1]);
-            }
-        }
-        return names.ToArray();
+        IEnumerable<string> names = lines
+            .Where(line => line.StartsWith("Subregion"))
+            .Select(line => SplitField(spaceAfterColon(line)))
+            .Where(fields => fields.Length > 1)
+            .Select(fields => fields[1]);
+        return [noneLabel, .. names];
     }
 
     /// <summary>
-    /// The subregion of each room named in a map file. A map line is "SU_A01: 12><34><...><Filtration System", where
-    /// the sixth field is the subregion's name. "Off" and "Connection" lines are not rooms. A room whose name is not
+    /// The subregion index of each room named in a map file. A map line is the room's name, a colon, and fields separated by
+    /// the two characters <c>&gt;&lt;</c>, as in <c>SU_A01: 12&gt;&lt;34&gt;&lt;...&gt;&lt;Filtration System</c>. The
+    /// sixth field is the subregion's name. "Off" and "Connection" lines are not rooms. A room whose name is not
     /// among <paramref name="subregionNames"/> (index 0, "no subregion", is never a match) gets subregion 0. Rooms
     /// the map does not mention are absent from the result.
     /// </summary>
-    public static Dictionary<string, (int Index, string Name)> ParseMapSubregions(
+    public static Dictionary<string, int> ParseMapSubregions(
         IEnumerable<string> lines, IReadOnlyList<string> subregionNames, Func<string, string> spaceAfterColon)
     {
-        var result = new Dictionary<string, (int, string)>();
-        foreach (var line in lines)
+        var result = new Dictionary<string, int>();
+        foreach (string line in lines)
         {
             if (line.StartsWith("Off") || line.StartsWith("Connection"))
             {
                 continue;
             }
-            var fields = SplitField(spaceAfterColon(line));
+            string[] fields = SplitField(spaceAfterColon(line));
             if (fields.Length < 2)
             {
                 continue;
@@ -152,19 +149,21 @@ internal static class RegionFiles
         return result;
     }
 
-    private static (int, string) Subregion(string mapData, IReadOnlyList<string> subregionNames)
+    /// <summary> The index of the subregion a map line names, matched against the region's subregion names. 0 if none matches. </summary>
+    private static int Subregion(string mapData, IReadOnlyList<string> subregionNames)
     {
-        var data = Regex.Split(mapData, "><");
-        var name = data.Length >= 6 ? data[5].Trim() : "";
-        for (var i = subregionNames.Count - 1; i >= 1; i--)
+        string[] data = Regex.Split(mapData, "><");
+        string name = data.Length >= 6 ? data[5].Trim() : "";
+        for (int i = subregionNames.Count - 1; i >= 1; i--)
         {
             if (name.Length > 0 && subregionNames[i] == name)
             {
-                return (i, name);
+                return i;
             }
         }
-        return (0, RoomInfo.NoSubregion);
+        return 0;
     }
 
-    private static string[] SplitField(string line) => line.Split(new[] { ": " }, StringSplitOptions.None);
+    /// <summary> Splits a "name: data" line at the colon. </summary>
+    private static string[] SplitField(string line) => line.Split([": "], StringSplitOptions.None);
 }

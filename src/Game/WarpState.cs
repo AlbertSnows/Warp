@@ -13,71 +13,88 @@ namespace Warp.Game;
 /// </summary>
 internal static class WarpState
 {
-    private static readonly Atom<Preferences> PreferencesAtom = new(new Preferences());
-    private static readonly Atom<HashSet<string>> FavouritesAtom = new(new HashSet<string>());
-    private static readonly Atom<ColorPalette> PaletteAtom = new(ColorPalette.Default);
-    private static readonly Atom<WarpRequest> PendingAtom = new(null);
-    private static readonly Atom<string> DenAtom = new(null);
-    private static readonly Atom<string> RegionAtom = new("");
-    private static readonly Atom<string> ErrorAtom = new("");
+    private static readonly Atom<Preferences> _preferencesAtom = new(new Preferences());
+    private static readonly Atom<HashSet<string>> _favouritesAtom = new([]);
+    private static readonly Atom<ColorPalette> _paletteAtom = new(ColorPalette.Default);
+    private static readonly Atom<WarpRequest> _pendingAtom = new(null);
+    private static readonly Atom<string> _denAtom = new(null);
+    private static readonly Atom<string> _regionAtom = new("");
+    private static readonly Atom<string> _errorAtom = new("");
 
-    public static Preferences Preferences => PreferencesAtom.Deref();
+    /// <summary> The player's saved choices. Change them with <see cref="UpdatePreferences"/>. </summary>
+    public static Preferences Preferences => _preferencesAtom.Deref();
 
     /// <summary>The regions marked as favourites. The set must not be changed; swap in a new one.</summary>
-    public static IReadOnlyCollection<string> Favourites => FavouritesAtom.Deref();
+    public static IReadOnlyCollection<string> Favourites => _favouritesAtom.Deref();
 
-    public static ColorPalette Palette => PaletteAtom.Deref();
+    /// <summary> The button colors. Change them with <see cref="UpdatePalette"/>. </summary>
+    public static ColorPalette Palette => _paletteAtom.Deref();
 
     /// <summary>The warp the player asked for that has not finished yet, or null.</summary>
-    public static WarpRequest Pending => PendingAtom.Deref();
+    public static WarpRequest Pending => _pendingAtom.Deref();
 
     /// <summary>The room the next story session starts in, set with shift + click, or null.</summary>
-    public static string DenPosition => DenAtom.Deref();
+    public static string DenPosition => _denAtom.Deref();
 
     /// <summary>The region whose rooms the menu is showing, which is where a room button warps to.</summary>
-    public static string SelectedRegion => RegionAtom.Deref();
+    public static string SelectedRegion => _regionAtom.Deref();
 
     /// <summary>Text for the menu to show after a failed warp, or an empty string.</summary>
-    public static string Error => ErrorAtom.Deref();
+    public static string Error => _errorAtom.Deref();
 
     /// <summary>Reads preferences, favourites and colors from disk. Call it when the pause menu opens.</summary>
     public static void Load()
     {
-        PreferencesAtom.Reset(WarpFiles.LoadPreferences());
-        FavouritesAtom.Reset(WarpFiles.LoadFavourites());
-        PaletteAtom.Reset(WarpFiles.LoadPalette());
+        _preferencesAtom.Reset(WarpFiles.LoadPreferences());
+        _favouritesAtom.Reset(WarpFiles.LoadFavourites());
+        _paletteAtom.Reset(WarpFiles.LoadPalette());
     }
 
+    /// <summary>
+    /// Changes the preferences with <paramref name="change"/> and saves them if they differ. The function must be
+    /// pure.
+    /// </summary>
     public static void UpdatePreferences(Func<Preferences, Preferences> change)
     {
-        var swapped = PreferencesAtom.SwapVals(change);
-        if (!Equals(swapped.Old, swapped.New))
+        Swapped<Preferences> swapped = _preferencesAtom.SwapVals(change);
+        if (!Equals(swapped.old, swapped.@new))
         {
-            WarpFiles.SavePreferences(swapped.New);
+            WarpFiles.SavePreferences(swapped.@new);
         }
     }
 
     /// <summary>Adds the region to the favourites or removes it. Returns true if it is a favourite afterwards.</summary>
     public static bool ToggleFavourite(string region)
     {
-        var favourites = FavouritesAtom.Swap(current => Toggling.Toggle(current, region));
+        HashSet<string> favourites = _favouritesAtom.Swap(current => Toggling.Toggle(current, region));
         WarpFiles.SaveFavourites(favourites);
         return favourites.Contains(region);
     }
 
-    public static void UpdatePalette(Func<ColorPalette, ColorPalette> change) => PaletteAtom.Swap(change);
+    /// <summary>
+    /// Changes the palette with <paramref name="change"/>. The change is kept in memory; <see cref="SavePalette"/>
+    /// writes it to disk.
+    /// </summary>
+    public static void UpdatePalette(Func<ColorPalette, ColorPalette> change) => _paletteAtom.Swap(change);
 
+    /// <summary> Writes the current palette to disk. </summary>
     public static void SavePalette() => WarpFiles.SavePalette(Palette);
 
-    public static void RequestWarp(WarpRequest request) => PendingAtom.Reset(request);
+    /// <summary> Asks for a warp. The warp driver carries it out over the next frames. </summary>
+    public static void RequestWarp(WarpRequest request) => _pendingAtom.Reset(request);
 
-    public static void EndWarp() => PendingAtom.Reset(null);
+    /// <summary> Marks the pending warp as finished or abandoned. </summary>
+    public static void EndWarp() => _pendingAtom.Reset(null);
 
-    public static void SetDenPosition(string room) => DenAtom.Reset(room);
+    /// <summary> Sets the room the next story session starts in. Null clears it. </summary>
+    public static void SetDenPosition(string room) => _denAtom.Reset(room);
 
-    public static void SelectRegion(string region) => RegionAtom.Reset(region);
+    /// <summary> Sets the region whose rooms the menu shows, which is where a room button warps to. </summary>
+    public static void SelectRegion(string region) => _regionAtom.Reset(region);
 
-    public static void ReportError(string text) => ErrorAtom.Reset(text);
+    /// <summary> Sets the text the pause menu shows after a failed warp. </summary>
+    public static void ReportError(string text) => _errorAtom.Reset(text);
 
-    public static void ClearError() => ErrorAtom.Reset("");
+    /// <summary> Forgets the error text once it has been shown. </summary>
+    public static void ClearError() => _errorAtom.Reset("");
 }

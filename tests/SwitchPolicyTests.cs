@@ -1,4 +1,3 @@
-using System;
 using System.Globalization;
 using System.Threading;
 using Warp.Switching;
@@ -31,13 +30,13 @@ internal static class SwitchPolicyTests
     {
         var idle = new SwitchStep(SwitchState.Idle, SwitchAction.None);
 
-        var allDone = SwitchPolicy.Next(
+        SwitchStep allDone = SwitchPolicy.Next(
             SwitchState.Idle,
             new SwitchFacts(LoaderFinished: true, RoomsPrepared: true, PlayersCanMove: true),
             Timeout);
         CheckEqual("an idle switch does nothing and stays idle", idle, allDone);
 
-        var notApplying = SwitchPolicy.Next(SwitchState.Idle, new SwitchFacts(StillApplies: false, Now: 500f), Timeout);
+        SwitchStep notApplying = SwitchPolicy.Next(SwitchState.Idle, new SwitchFacts(StillApplies: false, Now: 500f), Timeout);
         CheckEqual("an idle switch has nothing to drop", idle, notApplying);
     }
 
@@ -48,23 +47,23 @@ internal static class SwitchPolicyTests
     private static void DropTests()
     {
         var loading = SwitchState.Begin(10f, 100);
-        var preparing = loading.MoveTo(SwitchStage.PreparingRoom, 12f);
+        SwitchState preparing = loading.MoveTo(SwitchStage.PreparingRoom, 12f);
         var dropped = new SwitchStep(SwitchState.Idle, SwitchAction.Drop);
 
-        var whileLoading = SwitchPolicy.Next(loading, new SwitchFacts(StillApplies: false, Now: 11f), Timeout);
+        SwitchStep whileLoading = SwitchPolicy.Next(loading, new SwitchFacts(StillApplies: false, Now: 11f), Timeout);
         CheckEqual("a switch that no longer applies is dropped while loading", dropped, whileLoading);
 
-        var whilePreparing = SwitchPolicy.Next(
+        SwitchStep whilePreparing = SwitchPolicy.Next(
             preparing,
             new SwitchFacts(StillApplies: false, RoomsPrepared: true, PlayersCanMove: true, Now: 13f),
             Timeout);
         CheckEqual(
             "a switch that no longer applies is dropped while preparing, even if ready", dropped, whilePreparing);
 
-        var afterTimeout = SwitchPolicy.Next(loading, new SwitchFacts(StillApplies: false, Now: 500f), Timeout);
+        SwitchStep afterTimeout = SwitchPolicy.Next(loading, new SwitchFacts(StillApplies: false, Now: 500f), Timeout);
         CheckEqual("being dropped wins over timing out", dropped, afterTimeout);
 
-        var loadFinished = SwitchPolicy.Next(
+        SwitchStep loadFinished = SwitchPolicy.Next(
             loading, new SwitchFacts(StillApplies: false, LoaderFinished: true, Now: 11f), Timeout);
         CheckEqual("being dropped wins over a finished load", dropped, loadFinished);
     }
@@ -77,25 +76,25 @@ internal static class SwitchPolicyTests
         var loading = SwitchState.Begin(10f, 100);
         var waiting = new SwitchStep(loading, SwitchAction.Wait);
 
-        var stillLoading = SwitchPolicy.Next(loading, new SwitchFacts(Now: 11f), Timeout);
+        SwitchStep stillLoading = SwitchPolicy.Next(loading, new SwitchFacts(Now: 11f), Timeout);
         CheckEqual("a region that is still loading is waited for, with the state unchanged", waiting, stillLoading);
 
-        var atLimit = SwitchPolicy.Next(loading, new SwitchFacts(Now: 10f + Timeout), Timeout);
+        SwitchStep atLimit = SwitchPolicy.Next(loading, new SwitchFacts(Now: 10f + Timeout), Timeout);
         CheckEqual("exactly at the limit it keeps waiting", waiting, atLimit);
 
-        var past = SwitchPolicy.Next(loading, new SwitchFacts(Now: 10f + Timeout + 0.01f), Timeout);
+        SwitchStep past = SwitchPolicy.Next(loading, new SwitchFacts(Now: 10f + Timeout + 0.01f), Timeout);
         CheckEqual(
             "past the limit the load times out and the switch goes back to idle",
             new SwitchStep(SwitchState.Idle, SwitchAction.LoadTimedOut), past);
 
-        var finished = SwitchPolicy.Next(loading, new SwitchFacts(LoaderFinished: true, Now: 12.5f), Timeout);
+        SwitchStep finished = SwitchPolicy.Next(loading, new SwitchFacts(LoaderFinished: true, Now: 12.5f), Timeout);
         CheckEqual(
             "a finished load moves on to realizing the room; the stage clock restarts, the switch keeps its start",
             new SwitchStep(new SwitchState(SwitchStage.PreparingRoom, 10f, 100, 12.5f), SwitchAction.RealizeRoom),
             finished);
 
         const float lateTime = 10f + Timeout + 5f;
-        var late = SwitchPolicy.Next(loading, new SwitchFacts(LoaderFinished: true, Now: lateTime), Timeout);
+        SwitchStep late = SwitchPolicy.Next(loading, new SwitchFacts(LoaderFinished: true, Now: lateTime), Timeout);
         CheckEqual(
             "a load that finishes after the limit has still finished",
             new SwitchStep(new SwitchState(SwitchStage.PreparingRoom, 10f, 100, lateTime), SwitchAction.RealizeRoom),
@@ -108,47 +107,47 @@ internal static class SwitchPolicyTests
     /// </summary>
     private static void PreparingRoomTests()
     {
-        var preparing = SwitchState.Begin(10f, 100).MoveTo(SwitchStage.PreparingRoom, 12f);
+        SwitchState preparing = SwitchState.Begin(10f, 100).MoveTo(SwitchStage.PreparingRoom, 12f);
         var waiting = new SwitchStep(preparing, SwitchAction.Wait);
         var moved = new SwitchStep(SwitchState.Idle, SwitchAction.MovePlayers);
 
-        var notPrepared = SwitchPolicy.Next(preparing, new SwitchFacts(Now: 13f), Timeout);
+        SwitchStep notPrepared = SwitchPolicy.Next(preparing, new SwitchFacts(Now: 13f), Timeout);
         CheckEqual("rooms that are still preparing are waited for", waiting, notPrepared);
 
-        var roomTimeout = SwitchPolicy.Next(preparing, new SwitchFacts(Now: 12f + Timeout + 0.01f), Timeout);
+        SwitchStep roomTimeout = SwitchPolicy.Next(preparing, new SwitchFacts(Now: 12f + Timeout + 0.01f), Timeout);
         CheckEqual(
             "rooms that never finish time out",
             new SwitchStep(SwitchState.Idle, SwitchAction.RoomTimedOut),
             roomTimeout);
 
-        var roomsAtLimit = SwitchPolicy.Next(preparing, new SwitchFacts(Now: 12f + Timeout), Timeout);
+        SwitchStep roomsAtLimit = SwitchPolicy.Next(preparing, new SwitchFacts(Now: 12f + Timeout), Timeout);
         CheckEqual("exactly at the limit the rooms are still waited for", waiting, roomsAtLimit);
 
-        var fromStageStart = SwitchPolicy.Next(preparing, new SwitchFacts(Now: 10f + Timeout + 0.01f), Timeout);
+        SwitchStep fromStageStart = SwitchPolicy.Next(preparing, new SwitchFacts(Now: 10f + Timeout + 0.01f), Timeout);
         CheckEqual("the timeout runs from the start of the stage, not the switch", waiting, fromStageStart);
 
-        var blocked = SwitchPolicy.Next(preparing, new SwitchFacts(RoomsPrepared: true, Now: 13f), Timeout);
+        SwitchStep blocked = SwitchPolicy.Next(preparing, new SwitchFacts(RoomsPrepared: true, Now: 13f), Timeout);
         CheckEqual("prepared rooms with a player in a shortcut are waited for", waiting, blocked);
 
-        var moveTimeout = SwitchPolicy.Next(
+        SwitchStep moveTimeout = SwitchPolicy.Next(
             preparing, new SwitchFacts(RoomsPrepared: true, Now: 12f + Timeout + 0.01f), Timeout);
         CheckEqual(
             "a player who never leaves the shortcut times out the move",
             new SwitchStep(SwitchState.Idle, SwitchAction.MoveTimedOut), moveTimeout);
 
-        var moveAtLimit = SwitchPolicy.Next(
+        SwitchStep moveAtLimit = SwitchPolicy.Next(
             preparing, new SwitchFacts(RoomsPrepared: true, Now: 12f + Timeout), Timeout);
         CheckEqual("exactly at the limit a blocked player is still waited for", waiting, moveAtLimit);
 
-        var ready = SwitchPolicy.Next(
+        SwitchStep ready = SwitchPolicy.Next(
             preparing, new SwitchFacts(RoomsPrepared: true, PlayersCanMove: true, Now: 13f), Timeout);
         CheckEqual("everything ready moves the players and the switch is done", moved, ready);
 
-        var movingLate = SwitchPolicy.Next(
+        SwitchStep movingLate = SwitchPolicy.Next(
             preparing, new SwitchFacts(RoomsPrepared: true, PlayersCanMove: true, Now: 12f + Timeout + 5f), Timeout);
         CheckEqual("ready after the limit still moves the players", moved, movingLate);
 
-        var playersFirst = SwitchPolicy.Next(preparing, new SwitchFacts(PlayersCanMove: true, Now: 13f), Timeout);
+        SwitchStep playersFirst = SwitchPolicy.Next(preparing, new SwitchFacts(PlayersCanMove: true, Now: 13f), Timeout);
         CheckEqual("players being free does not matter until the rooms are prepared", waiting, playersFirst);
     }
 
@@ -166,7 +165,7 @@ internal static class SwitchPolicyTests
     private static void StateTests()
     {
         var loading = SwitchState.Begin(10f, 100);
-        var preparing = loading.MoveTo(SwitchStage.PreparingRoom, 12f);
+        SwitchState preparing = loading.MoveTo(SwitchStage.PreparingRoom, 12f);
 
         CheckEqual(
             "a new switch is loading, with both clocks at its start",
@@ -194,7 +193,7 @@ internal static class SwitchPolicyTests
         CheckEqual("time and frames are reported", "2.4 seconds, 96 frames", SwitchPolicy.Elapsed(state, 12.4f, 196));
         CheckEqual("a switch that has just begun", "0.0 seconds, 0 frames", SwitchPolicy.Elapsed(state, 10f, 100));
 
-        var original = Thread.CurrentThread.CurrentCulture;
+        CultureInfo original = Thread.CurrentThread.CurrentCulture;
         try
         {
             Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");

@@ -1,24 +1,26 @@
 using System;
 using Menu;
 using Warp.Game;
+using Warp.Model;
 using Warp.Util;
 
 namespace Warp.Switching;
 
 /// <summary>
 /// Carries out the warp the player asked for. The game calls <see cref="Update"/> once a frame after its own world
-/// update. A warp inside the region the players are in is done by <see cref="RoomWarp"/>. A warp to another region
+/// update. A warp inside the region the players are in is done by <see cref="_roomWarp"/>. A warp to another region
 /// starts a <see cref="SwitchStepper"/>, which loads the region a step at a time over the next frames. A failure is
 /// logged, shown to the player in the pause menu, and ends the warp.
 /// </summary>
 internal static class WarpDriver
 {
-    private static readonly RoomWarp RoomWarp = new();
+    private static readonly RoomWarp _roomWarp = new();
     private static SwitchStepper _regionSwitch;
 
+    /// <summary> Does one frame of work for the pending warp, if there is one. </summary>
     public static void Update(OverWorld overWorld)
     {
-        var request = WarpState.Pending;
+        WarpRequest request = WarpState.Pending;
         if (request == null)
         {
             // A region switch only lives while a warp is requested, so one that is left over is dropped
@@ -30,7 +32,7 @@ internal static class WarpDriver
             StepRegionSwitch(overWorld);
             return;
         }
-        var lead = overWorld.game.AlivePlayers.Count > 0 ? overWorld.game.AlivePlayers[0].realizedCreature as Player : null;
+        Player lead = overWorld.game.AlivePlayers.Count > 0 ? overWorld.game.AlivePlayers[0].realizedCreature as Player : null;
         if (lead == null || lead.inShortcut)
         {
             return;
@@ -42,15 +44,15 @@ internal static class WarpDriver
         }
         try
         {
-            if (RoomWarp.Update(overWorld, request, lead))
+            if (_roomWarp.Update(overWorld, request, lead))
             {
                 WarpState.EndWarp();
             }
         }
         catch (Exception error)
         {
-            RoomWarp.Finish();
-            Fail(overWorld, error, WarpStageText.ErrorText(RoomWarp.Stage));
+            _roomWarp.Finish();
+            Fail(overWorld, error, WarpStageText.ErrorText(_roomWarp.Stage));
         }
     }
 
@@ -62,9 +64,12 @@ internal static class WarpDriver
     {
         _regionSwitch?.Cancel();
         _regionSwitch = null;
-        RoomWarp.Finish();
+        _roomWarp.Finish();
     }
 
+    /// <summary>
+    /// Starts a warp to another region. Having no player to move is not an error; there is simply nothing to do.
+    /// </summary>
     private static void BeginRegionSwitch(OverWorld overWorld, Model.WarpRequest request)
     {
         WarpState.ClearError();
@@ -108,12 +113,14 @@ internal static class WarpDriver
         }
     }
 
+    /// <summary> Ends the region switch and the request that started it. </summary>
     private static void End()
     {
         _regionSwitch = null;
         WarpState.EndWarp();
     }
 
+    /// <summary> Reports a failed warp: logs it, shows the text in a new pause menu, and ends the warp. </summary>
     private static void Fail(OverWorld overWorld, Exception error, string text)
     {
         WarpLog.Exception("warping", error);

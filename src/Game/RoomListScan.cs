@@ -15,7 +15,7 @@ internal static class RoomListScan
 {
     private readonly record struct Scan(bool Running, int Next);
 
-    private static readonly Atom<Scan> State = new(new Scan(false, 0));
+    private static readonly Atom<Scan> _state = new(new Scan(false, 0));
 
     /// <summary>Call once a frame while the pause menu is open.</summary>
     public static void Update(RainWorldGame game)
@@ -24,38 +24,48 @@ internal static class RoomListScan
         {
             Export();
         }
-        if (Input.GetKeyDown(KeyCode.F5) && !State.Deref().Running)
+        if (Input.GetKeyDown(KeyCode.F5) && !_state.Deref().Running)
         {
-            State.Reset(new Scan(true, 0));
+            _state.Reset(new Scan(true, 0));
         }
-        if (State.Deref().Running)
+        if (_state.Deref().Running)
         {
             Step(game.overWorld.regions);
         }
     }
 
+    /// <summary>
+    /// Reads the next region of the scan, and when the last has been read, ends the scan and writes the list.
+    /// </summary>
     private static void Step(Region[] regions)
     {
-        var scan = State.Deref();
+        Scan scan = _state.Deref();
         if (scan.Next < regions.Length)
         {
             RegionCatalog.Reload(regions[scan.Next].name);
-            State.Reset(scan with
+            _state.Reset(scan with
             {
                 Next = scan.Next + 1
             });
         }
-        if (State.Deref().Next >= regions.Length)
+
+        if (_state.Deref().Next < regions.Length)
         {
-            State.Reset(new Scan(false, 0));
-            Export();
+            return;
         }
+
+        _state.Reset(new Scan(false, 0));
+        Export();
     }
 
+    /// <summary>
+    /// Writes the regions read so far to the room list file and opens it. Failing to open the file is logged, not
+    /// thrown.
+    /// </summary>
     private static void Export()
     {
-        var regions = RegionCatalog.All.Select(pair => new KeyValuePair<string, RoomInfo[]>(pair.Key, pair.Value.Rooms));
-        var path = WarpFiles.WriteRoomList(RoomListExport.Format(regions));
+        IEnumerable<KeyValuePair<string, RoomInfo[]>> regions = RegionCatalog.All.Select(pair => new KeyValuePair<string, RoomInfo[]>(pair.Key, pair.Value.Rooms));
+        string path = WarpFiles.WriteRoomList(RoomListExport.Format(regions));
         try
         {
             Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });

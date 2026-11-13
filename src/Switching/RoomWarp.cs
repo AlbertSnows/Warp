@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using UnityEngine;
 using Warp.Model;
 
 namespace Warp.Switching;
@@ -21,7 +22,7 @@ internal sealed class RoomWarp
     /// </summary>
     public bool Update(OverWorld overWorld, WarpRequest request, Player lead)
     {
-        var game = overWorld.game;
+        RainWorldGame game = overWorld.game;
         Stage = WarpStage.AbstractRoom;
         if (_room == null || _room.name != request.Room)
         {
@@ -34,7 +35,7 @@ internal sealed class RoomWarp
             _room.RealizeRoom(game.world, game);
         }
 
-        var realized = _room.realizedRoom;
+        Room realized = _room.realizedRoom;
         if (realized != null && realized.ReadyForPlayer)
         {
             Stage = WarpStage.MovePlayer;
@@ -69,11 +70,15 @@ internal sealed class RoomWarp
     /// <summary>Forgets the room, so the next warp looks its destination up afresh.</summary>
     public void Finish() => _room = null;
 
+    /// <summary>
+    /// Moves every player into the room, at the chosen tile if there is one and at the room's first entrance if
+    /// not.
+    /// </summary>
     private static void MovePlayers(RainWorldGame game, Player lead, Room room, TileCoord? tile)
     {
-        foreach (var abstractPlayer in game.AlivePlayers.Where(player => player.realizedCreature != null))
+        foreach (AbstractCreature abstractPlayer in game.AlivePlayers.Where(player => player.realizedCreature != null))
         {
-            var creature = abstractPlayer.realizedCreature;
+            Creature creature = abstractPlayer.realizedCreature;
             PlayerOps.ReleaseHeldCreatures(creature);
             abstractPlayer.Move(tile is { } spot
                 ? new WorldCoordinate(room.abstractRoom.index, spot.X, spot.Y, -1)
@@ -83,10 +88,11 @@ internal sealed class RoomWarp
         }
     }
 
+    /// <summary> Moves each player's body to a tile of the room they are already in. </summary>
     private static void PutBodiesAt(RainWorldGame game, Room room, TileCoord tile)
     {
-        var position = room.MiddleOfTile(tile.X, tile.Y);
-        foreach (var chunk in game.AlivePlayers.Where(player => player.realizedCreature != null)
+        Vector2 position = room.MiddleOfTile(tile.X, tile.Y);
+        foreach (BodyChunk chunk in game.AlivePlayers.Where(player => player.realizedCreature != null)
                      .SelectMany(player => player.realizedCreature.bodyChunks))
         {
             chunk.pos = position;
@@ -97,14 +103,16 @@ internal sealed class RoomWarp
     /// <summary>A spear on a player's back stays in the old room unless it is placed in the new one too.</summary>
     private static void BringBackSpears(RainWorldGame game, Room room)
     {
-        foreach (var player in game.AlivePlayers.Select(abstractPlayer => abstractPlayer.realizedCreature as Player))
+        foreach (Player player in game.AlivePlayers.Select(abstractPlayer => abstractPlayer.realizedCreature as Player))
         {
-            var spear = player?.spearOnBack?.spear;
-            if (spear != null)
+            Spear spear = player?.spearOnBack?.spear;
+            if (spear == null)
             {
-                spear.PlaceInRoom(room);
-                spear.room = player.room;
+                continue;
             }
+
+            spear.PlaceInRoom(room);
+            spear.room = player.room;
         }
     }
 }
