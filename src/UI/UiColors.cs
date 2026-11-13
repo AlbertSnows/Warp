@@ -25,8 +25,7 @@ internal static class UiColors
     public static readonly Color Disabled = new(0.3f, 0.3f, 0.3f);
     /// <summary> The message shown after a failed warp. </summary>
     public static readonly Color Error = new(1f, 0f, 0f);
-    /// <summary> A pale grey. </summary>
-    public static readonly Color Light = new(0.8f, 0.8f, 0.8f);
+
     /// <summary> The "Warp Menu" heading. </summary>
     public static readonly Color Title = new(0.33f, 0.33f, 0.33f);
 

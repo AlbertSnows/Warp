@@ -4,6 +4,7 @@ internal static class Program
 {
     private static int Main()
     {
+        AtomTests.Run();
         SwitchPolicyTests.Run();
         RegionFilesTests.Run();
         LayoutTests.Run();

@@ -28,6 +28,10 @@ internal enum SlopeDirection
 /// <summary>
 /// One tile of a room.
 /// </summary>
+/// <param name="Terrain">What the tile is made of.</param>
+/// <param name="VerticalBeam">Whether a vertical pole runs through the tile.</param>
+/// <param name="HorizontalBeam">Whether a horizontal pole runs through the tile.</param>
+/// <param name="WallBehind">Whether there is a back wall behind the tile.</param>
 /// <param name="ShortCut">0 for none, 1 for a shortcut's path, 2 an exit, 3 a den, 4 a whack-a-mole hole, 5 a gate room.</param>
 internal readonly record struct Tile(
     Terrain Terrain, bool VerticalBeam, bool HorizontalBeam, bool WallBehind, int ShortCut);

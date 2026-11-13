@@ -57,9 +57,9 @@ internal static class WarpState
     public static void UpdatePreferences(Func<Preferences, Preferences> change)
     {
         Swapped<Preferences> swapped = _preferencesAtom.SwapVals(change);
-        if (!Equals(swapped.old, swapped.@new))
+        if (!Equals(swapped.Old, swapped.New))
         {
-            WarpFiles.SavePreferences(swapped.@new);
+            WarpFiles.SavePreferences(swapped.New);
         }
     }
 
