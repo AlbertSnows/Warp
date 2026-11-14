@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Menu;
 using UnityEngine;
 
@@ -13,13 +14,8 @@ internal static class MenuObjectExtensions
     /// </summary>
     public static void RemoveAll(this MenuObject owner, IEnumerable<MenuObject> items)
     {
-        foreach (MenuObject item in items)
+        foreach (MenuObject item in items.Where(item => item != null))
         {
-            if (item == null)
-            {
-                continue;
-            }
-
             item.RemoveSprites();
             owner.RemoveSubObject(item);
         }

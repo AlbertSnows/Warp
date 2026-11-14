@@ -119,45 +119,55 @@ internal static class RegionFiles
     }
 
     /// <summary>
-    /// The subregion index of each room named in a map file. A map line is the room's name, a colon, and fields separated by
-    /// the two characters <c>&gt;&lt;</c>, as in <c>SU_A01: 12&gt;&lt;34&gt;&lt;...&gt;&lt;Filtration System</c>. The
-    /// sixth field is the subregion's name. "Off" and "Connection" lines are not rooms. A room whose name is not
-    /// among <paramref name="subregionNames"/> (index 0, "no subregion", is never a match) gets subregion 0. Rooms
-    /// the map does not mention are absent from the result.
+    /// Which subregion each room is in, read from the lines of a region's map file.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A room's line is its name, a colon, and six fields separated by <c>&gt;&lt;</c>: the room's x and y on the map,
+    /// its x and y on the developer map, its layer, and the name of its subregion. Only the last is read. It is empty for
+    /// a room with no subregion, such as a gate. For example:
+    /// </para>
+    /// <code>SU_B13: 184.4822&gt;&lt;248.3098&gt;&lt;141.6139&gt;&lt;444.8402&gt;&lt;1&gt;&lt;Outskirts</code>
+    /// <para>
+    /// Lines that start with "Off" or "Connection" are not rooms and are skipped.
+    /// </para>
+    /// </remarks>
+    /// <param name="lines">The lines of the map file.</param>
+    /// <param name="subregionNames">
+    /// The region's subregion names, where index 0 is the label for "no subregion" and never matches a name.
+    /// </param>
+    /// <param name="spaceAfterColon">
+    /// Puts in the space after the colon that the game does not insist on, before a line is split.
+    /// </param>
+    /// <returns>
+    /// The index in <paramref name="subregionNames"/> of each room's subregion, by room name. A room whose subregion
+    /// name is not in the list gets 0. A room the map does not mention is left out.
+    /// </returns>
     public static Dictionary<string, int> ParseMapSubregions(
         IEnumerable<string> lines, IReadOnlyList<string> subregionNames, Func<string, string> spaceAfterColon)
     {
-        var result = new Dictionary<string, int>();
-        foreach (string line in lines)
+        var subregionOfRoom = new Dictionary<string, int>();
+        IEnumerable<string[]> roomFields = lines
+            .Where(line => !line.StartsWith("Off", StringComparison.Ordinal)
+                           && !line.StartsWith("Connection", StringComparison.Ordinal))
+            .Select(line => SplitField(spaceAfterColon(line)))
+            .Where(fields => fields.Length >= 2);
+        foreach (string[] fields in roomFields)
         {
-            if (line.StartsWith("Off", StringComparison.Ordinal) || line.StartsWith("Connection", StringComparison.Ordinal))
-            {
-                continue;
-            }
-            string[] fields = SplitField(spaceAfterColon(line));
-            if (fields.Length < 2)
-            {
-                continue;
-            }
-            result[fields[0]] = Subregion(fields[1], subregionNames);
+            subregionOfRoom[fields[0]] = Subregion(fields[1], subregionNames);
         }
-        return result;
+        return subregionOfRoom;
     }
 
     /// <summary> The index of the subregion a map line names, matched against the region's subregion names. 0 if none matches. </summary>
     private static int Subregion(string mapData, IReadOnlyList<string> subregionNames)
     {
-        string[] data = mapData.Split(["><"], StringSplitOptions.None);
-        string name = data.Length >= 6 ? data[5].Trim() : "";
-        for (int i = subregionNames.Count - 1; i >= 1; i--)
-        {
-            if (name.Length > 0 && subregionNames[i] == name)
-            {
-                return i;
-            }
-        }
-        return 0;
+        string[] fields = mapData.Split(["><"], StringSplitOptions.None);
+        string name = fields.Length >= 6 ? fields[5].Trim() : "";
+        // Index 0 is the label for "no subregion", so only the names after it can match. If two share a name, the later wins
+        return Enumerable
+            .Range(1, Math.Max(subregionNames.Count - 1, 0))
+            .LastOrDefault(index => name.Length > 0 && subregionNames[index] == name);
     }
 
     /// <summary> Splits a "name: data" line at the colon. </summary>

@@ -80,8 +80,10 @@ internal sealed class WarpContainer : RectangularMenuObject
 
             if (!string.IsNullOrEmpty(WarpState.Error))
             {
-                var errorLabel = new MenuLabel(menu, this, WarpState.Error, new Vector2(682f, 72f), Vector2.zero, true);
-                errorLabel.label.color = UiColors.Error;
+                var errorLabel = new MenuLabel(menu, this, WarpState.Error, new Vector2(682f, 72f), Vector2.zero, true)
+                {
+                    label = { color = UiColors.Error }
+                };
                 subObjects.Add(errorLabel);
                 _errorSoundPending = true;
             }
@@ -161,10 +163,10 @@ internal sealed class WarpContainer : RectangularMenuObject
         {
             return;
         }
-        RegionData data = RegionCatalog.Get(WarpState.SelectedRegion);
+        RegionData regionData = RegionCatalog.Get(WarpState.SelectedRegion);
         Preferences preferences = WarpState.Preferences;
-        _grid.Show(data, preferences.Sort, preferences.View, WarpState.Palette);
-        _legend.Rebuild(data, preferences.Sort, preferences.View, WarpState.Palette);
+        _grid.Show(regionData, preferences.Sort, preferences.View, WarpState.Palette);
+        _legend.Rebuild(regionData, preferences.Sort, preferences.View, WarpState.Palette);
         if (preferences.ShowStats)
         {
             ShowStats();
@@ -271,10 +273,10 @@ internal sealed class WarpContainer : RectangularMenuObject
             return;
         }
 
-        string text = den == null
+        string denText = den == null
             ? "Den Position: {0} #SEPARATOR# Hold shift + click a room to assign"
             : "Den Position: {0} #SEPARATOR# Press C to clear";
-        _denLabel.label.text = Translator.FormatWithSeparator(text, Translator.Translate(den ?? "NONE"));
+        _denLabel.label.text = Translator.FormatWithSeparator(denText, Translator.Translate(den ?? "NONE"));
         _denShown = den;
         _denLabelShown = true;
     }

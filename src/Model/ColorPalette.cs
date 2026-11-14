@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Warp.Util;
 
 namespace Warp.Model;
 
@@ -38,27 +39,27 @@ internal sealed class ColorPalette
         _subregions = subregions.ToDictionary(pair => pair.Key, pair => (Hsl[])pair.Value.Clone());
     }
 
-    /// <summary> The colors Warp starts with, before any file or edit. </summary>
-    public static readonly ColorPalette Default = new(
-        [
-            new Hsl(0.33f, 0.99f, 0.67f), new Hsl(0.18f, 0.99f, 0.63f), new Hsl(0.51f, 0.99f, 0.61f),
-            new Hsl(0.73f, 0.99f, 0.76f), new Hsl(0.06f, 0.99f, 0.63f), new Hsl(0.99f, 0.99f, 0.66f)
-        ],
-        [
-            new Hsl(0.33f, 0.99f, 0.67f), new Hsl(0.18f, 0.99f, 0.68f), new Hsl(0.08f, 0.99f, 0.61f),
-            new Hsl(0f, 0.99f, 0.69f), new Hsl(0.82f, 0.99f, 0.73f), new Hsl(0.71f, 0.99f, 0.66f),
-            new Hsl(0.6f, 0.99f, 0.59f), new Hsl(0.54f, 0.99f, 0.65f), new Hsl(0.46f, 0.99f, 0.58f)
-        ],
-        new Dictionary<string, Hsl[]>());
+    /// <summary>
+    /// The shipped colors file, as lines. The built-in colors are read from it, once, when the palette is first used.
+    /// The fields below depend on each other, so they are in the order they have to be made in.
+    /// </summary>
+    private static readonly string[] _shippedLines = EmbeddedText.Read(ColorFile.ResourceName).Split('\n');
 
     /// <summary>The colors for subregions, used until a region is given colors of its own. The first is for "none".</summary>
     private static readonly Hsl[] _defaultSubregions =
-    [
-        new(0.46f, 0.99f, 0.99f), new(0.33f, 0.99f, 0.67f), new(0.18f, 0.99f, 0.68f), new(0.08f, 0.99f, 0.61f),
-        new(0f, 0.99f, 0.69f), new(0.82f, 0.99f, 0.73f), new(0.71f, 0.99f, 0.66f), new(0.6f, 0.99f, 0.59f),
-        new(0.54f, 0.99f, 0.65f), new(0.46f, 0.99f, 0.58f), new(0.82f, 0.99f, 0.73f), new(0.71f, 0.99f, 0.66f),
-        new(0.6f, 0.99f, 0.59f), new(0.54f, 0.99f, 0.65f), new(0.46f, 0.99f, 0.58f)
-    ];
+        ColorFile.ReadSection(_shippedLines, ColorFile.DefaultSubregionSection);
+
+    /// <summary>
+    /// A palette with every color the same grey, which a file is read over to make a full one. It is only the start
+    /// of that: a color the file leaves out would stay grey, and a test checks the shipped file leaves none out.
+    /// </summary>
+    internal static readonly ColorPalette Blank = new(
+        [.. Enumerable.Repeat(new Hsl(0f, 0f, 0.5f), TypeCount)],
+        [.. Enumerable.Repeat(new Hsl(0f, 0f, 0.5f), SizeCount)],
+        new Dictionary<string, Hsl[]>());
+
+    /// <summary> The colors Warp starts with, before any file or edit. They come from the shipped colors file. </summary>
+    public static readonly ColorPalette Default = ColorFile.Parse(_shippedLines, Blank);
 
     private const float GoldenRatio = 0.618034f;
 
@@ -103,9 +104,8 @@ internal sealed class ColorPalette
     /// </summary>
     public Hsl Subregion(string region, int index)
     {
-        return _subregions.TryGetValue(region, out Hsl[]? colors) && index < colors.Length
-            ? colors[index]
-            : DefaultSubregion(index);
+        Hsl[] colors = _subregions.GetOr(region, []);
+        return index < colors.Length ? colors[index] : DefaultSubregion(index);
     }
 
     /// <summary>
@@ -114,17 +114,13 @@ internal sealed class ColorPalette
     /// </summary>
     public ColorPalette WithSubregionCount(string region, int count)
     {
-        _subregions.TryGetValue(region, out Hsl[]? colors);
-        if (colors != null && colors.Length >= count)
+        Hsl[] existing = _subregions.GetOr(region, []);
+        if (existing.Length >= count)
         {
             return this;
         }
-        Hsl[] grown =
-        [
-            .. Enumerable.Range(0, count)
-                .Select(i => colors != null && i < colors.Length ? colors[i] : DefaultSubregion(i))
-        ];
-        return WithSubregions(region, grown);
+        IEnumerable<Hsl> missing = Enumerable.Range(existing.Length, count - existing.Length).Select(DefaultSubregion);
+        return WithSubregions(region, [.. existing, .. missing]);
     }
 
     /// <summary> The palette with one room type's color changed. </summary>
@@ -157,7 +153,7 @@ internal sealed class ColorPalette
     {
         Grouping.Type => TypeCount,
         Grouping.Size => SizeCount,
-        _ => _subregions.TryGetValue(region, out Hsl[]? colors) ? colors.Length : 0
+        _ => _subregions.GetOr(region, []).Length
     };
 
     /// <summary>The color at an index of a category. For subregions, the region's own, or the default for the index.</summary>

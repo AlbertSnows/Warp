@@ -26,12 +26,12 @@ internal static class Translator
     /// </summary>
     public static string Format(string text, params object[] arguments)
     {
-        string result = Translate(text);
+        string translated = Translate(text);
         for (int i = 0; i < arguments.Length; i++)
         {
-            result = result.Replace("{" + i + "}", arguments[i]?.ToString());
+            translated = translated.Replace("{" + i + "}", arguments[i]?.ToString());
         }
-        return result;
+        return translated;
     }
 
     /// <summary>

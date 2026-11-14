@@ -125,9 +125,9 @@ internal sealed class RoomPreviewDialog : Dialog
     private static RoomTiles ReadTiles(string room)
     {
         string path = RoomFiles.Find(room) ?? throw new FileNotFoundException("No room file for " + room);
-        string[] lines = File.ReadAllLines(path);
-        RoomPreprocessor.VersionFix(ref lines);
-        return RoomTiles.Parse(lines);
+        string[] roomLines = File.ReadAllLines(path);
+        RoomPreprocessor.VersionFix(ref roomLines);
+        return RoomTiles.Parse(roomLines);
     }
 
     /// <summary>Takes the preview's pictures off the screen, as when a warp starts.</summary>
@@ -359,8 +359,8 @@ internal sealed class RoomPreviewDialog : Dialog
     /// <summary> The type of a room of the region, which decides whether its picture gets a border. An ordinary room if unknown. </summary>
     private RoomType TypeOf(string room)
     {
-        RoomInfo info = _rooms.FirstOrDefault(candidate => candidate.Name == room);
-        return info?.Type ?? RoomType.Room;
+        RoomInfo roomInfo = _rooms.FirstOrDefault(candidate => candidate.Name == room);
+        return roomInfo?.Type ?? RoomType.Room;
     }
 
     /// <summary>Exports one more room of the region, so a whole region is saved over many frames and the game keeps drawing.</summary>
@@ -374,8 +374,8 @@ internal sealed class RoomPreviewDialog : Dialog
         }
         if (_exportNext < _rooms.Length)
         {
-            RoomInfo info = _rooms[_exportNext];
-            PreviewExporter.TrySave(_region, info.Name, info.Type, _options, () => PreviewPainter.Paint(ReadTiles(info.Name)));
+            RoomInfo roomInfo = _rooms[_exportNext];
+            PreviewExporter.TrySave(_region, roomInfo.Name, roomInfo.Type, _options, () => PreviewPainter.Paint(ReadTiles(roomInfo.Name)));
             _exportNext++;
         }
         _progress.scaleX = Mathf.Lerp(0f, UiLayout.Screen(Custom.rainWorld).x, Mathf.InverseLerp(0, _rooms.Length, _exportNext));

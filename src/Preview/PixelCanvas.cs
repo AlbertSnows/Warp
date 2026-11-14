@@ -76,28 +76,28 @@ internal sealed class PixelCanvas
     /// <summary>The canvas with each pixel repeated as a square of <paramref name="factor"/> pixels a side.</summary>
     public PixelCanvas Scaled(int factor)
     {
-        var result = new PixelCanvas(Width * factor, Height * factor, default);
-        for (int y = 0; y < result.Height; y++)
+        var scaled = new PixelCanvas(Width * factor, Height * factor, default);
+        for (int y = 0; y < scaled.Height; y++)
         {
-            for (int x = 0; x < result.Width; x++)
+            for (int x = 0; x < scaled.Width; x++)
             {
-                result._pixels[y * result.Width + x] = Get(x / factor, y / factor);
+                scaled._pixels[y * scaled.Width + x] = Get(x / factor, y / factor);
             }
         }
-        return result;
+        return scaled;
     }
 
     /// <summary>The canvas with a border of the given width and color all the way round.</summary>
     public PixelCanvas WithBorder(int width, Rgba color)
     {
-        var result = new PixelCanvas(Width + 2 * width, Height + 2 * width, color);
+        var bordered = new PixelCanvas(Width + 2 * width, Height + 2 * width, color);
         for (int y = 0; y < Height; y++)
         {
             for (int x = 0; x < Width; x++)
             {
-                result.Set(x + width, y + width, Get(x, y));
+                bordered.Set(x + width, y + width, Get(x, y));
             }
         }
-        return result;
+        return bordered;
     }
 }

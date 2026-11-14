@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Warp.Model;
+using Warp.Util;
 using static Warp.Tests.Harness;
 
 namespace Warp.Tests;
@@ -66,35 +67,44 @@ internal static class DataTests
         CheckEqual("and not the old one", new Hsl(0.18f, 0.99f, 0.63f), palette.Type((RoomType)1));
 
         CheckEqual("a region with no colors falls back to the default for the index", ColorPalette.DefaultSubregion(2),
-            palette.Subregion("SU", 2));
-        ColorPalette grown = palette.WithSubregionCount("SU", 4);
-        CheckEqual("growing a region keeps four colors", 4, grown.Subregions["SU"].Count);
-        Check("asking for fewer than it has returns the same palette", ReferenceEquals(grown, grown.WithSubregionCount("SU", 2)));
-        ColorPalette recolored = grown.WithSubregion("SU", 6, new Hsl(0.1f, 0.2f, 0.3f));
-        CheckEqual("setting one past the end grows the list first", 7, recolored.Subregions["SU"].Count);
-        CheckEqual("and sets the color", new Hsl(0.1f, 0.2f, 0.3f), recolored.Subregion("SU", 6));
-        CheckEqual("the earlier list is unchanged", 4, grown.Subregions["SU"].Count);
+            palette.Subregion("ZZ", 2));
+        ColorPalette grown = palette.WithSubregionCount("ZZ", 4);
+        CheckEqual("growing a region keeps four colors", 4, grown.Subregions["ZZ"].Count);
+        Check("asking for fewer than it has returns the same palette", ReferenceEquals(grown, grown.WithSubregionCount("ZZ", 2)));
+        ColorPalette recolored = grown.WithSubregion("ZZ", 6, new Hsl(0.1f, 0.2f, 0.3f));
+        CheckEqual("setting one past the end grows the list first", 7, recolored.Subregions["ZZ"].Count);
+        CheckEqual("and sets the color", new Hsl(0.1f, 0.2f, 0.3f), recolored.Subregion("ZZ", 6));
+        CheckEqual("the earlier list is unchanged", 4, grown.Subregions["ZZ"].Count);
 
         var mark = new Hsl(0.9f, 0.8f, 0.7f);
         foreach (Grouping category in Groupings.All)
         {
-            ColorPalette set = recolored.WithColor(category, "SU", 1, mark);
-            CheckEqual("a color set in " + category + " reads back", mark, set.ColorAt(category, "SU", 1));
-            Check("and leaves the original alone", set.ColorAt(category, "SU", 1) != recolored.ColorAt(category, "SU", 1));
+            ColorPalette set = recolored.WithColor(category, "ZZ", 1, mark);
+            CheckEqual("a color set in " + category + " reads back", mark, set.ColorAt(category, "ZZ", 1));
+            Check("and leaves the original alone", set.ColorAt(category, "ZZ", 1) != recolored.ColorAt(category, "ZZ", 1));
         }
-        CheckEqual("the type count is the table's", ColorPalette.TypeCount, palette.CountIn(Grouping.Type, "SU"));
-        CheckEqual("the size count is the table's", ColorPalette.SizeCount, palette.CountIn(Grouping.Size, "SU"));
-        CheckEqual("a region without colors has no subregion swatches", 0, palette.CountIn(Grouping.Subregion, "SU"));
-        CheckEqual("a region with colors counts them", 7, recolored.CountIn(Grouping.Subregion, "SU"));
+        CheckEqual("the type count is the table's", ColorPalette.TypeCount, palette.CountIn(Grouping.Type, "ZZ"));
+        CheckEqual("the size count is the table's", ColorPalette.SizeCount, palette.CountIn(Grouping.Size, "ZZ"));
+        CheckEqual("a region without colors has no subregion swatches", 0, palette.CountIn(Grouping.Subregion, "ZZ"));
+        CheckEqual("a region with colors counts them", 7, recolored.CountIn(Grouping.Subregion, "ZZ"));
+
+        CheckEqual("a whole number is read", 12, Numbers.ParseInt("12"));
+        CheckEqual("text that is not a number gives null", null, Numbers.ParseInt("1x"));
+        CheckEqual("a sign is refused when only digits are allowed", null, Numbers.ParseInt("-1", System.Globalization.NumberStyles.None));
+        CheckEqual("a decimal point is read", 0.5f, Numbers.ParseFloat("0.5"));
+        CheckEqual("a decimal comma is not, without help", null, Numbers.ParseFloat("0,5"));
+        var ages = new Dictionary<string, int> { ["a"] = 3 };
+        CheckEqual("a key that is there gives its value", 3, ages.GetOr("a", 9));
+        CheckEqual("a key that is not gives the fallback", 9, ages.GetOr("b", 9));
 
         Hsl deep = ColorPalette.DefaultSubregion(40);
         CheckEqual("defaults past the table are always the same", deep, ColorPalette.DefaultSubregion(40));
         Check("and a valid color", deep.Hue is >= 0f and < 1f);
 
         var room = new RoomInfo("SU_A", RoomType.Shelter, 3, 1);
-        CheckEqual("colored by type", palette.Type(RoomType.Shelter), palette.For(room, Grouping.Type, "SU"));
-        CheckEqual("colored by size", palette.Size(3), palette.For(room, Grouping.Size, "SU"));
-        CheckEqual("colored by subregion", palette.Subregion("SU", 1), palette.For(room, Grouping.Subregion, "SU"));
+        CheckEqual("colored by type", palette.Type(RoomType.Shelter), palette.For(room, Grouping.Type, "ZZ"));
+        CheckEqual("colored by size", palette.Size(3), palette.For(room, Grouping.Size, "ZZ"));
+        CheckEqual("colored by subregion", palette.Subregion("ZZ", 1), palette.For(room, Grouping.Subregion, "ZZ"));
     }
 
     private static void ColorFileTests()
@@ -148,15 +158,22 @@ internal static class DataTests
 
     private static void ShippedColorsTests()
     {
-        string path = System.IO.Path.Combine(AppContext.BaseDirectory, "Colors.txt");
+        string[] lines = EmbeddedText.Read(ColorFile.ResourceName).Split('\n');
         var bad = new List<string>();
-        ColorPalette shipped = ColorFile.Parse(System.IO.File.ReadAllLines(path), ColorPalette.Default, bad.Add);
+        ColorPalette shipped = ColorFile.Parse(lines, ColorPalette.Blank, bad.Add);
         CheckEqual("the colors file that ships with Warp has nothing unreadable", 0, bad.Count);
-        CheckSequence("its type colors are the built-in ones", ColorPalette.Default.Types, shipped.Types);
-        CheckSequence("its size colors are the built-in ones", ColorPalette.Default.Sizes, shipped.Sizes);
+        Check("it gives every room type a color", shipped.Types.All(color => color != ColorPalette.Blank.Types[0]));
+        Check("it gives every camera count a color", shipped.Sizes.All(color => color != ColorPalette.Blank.Sizes[0]));
+        CheckSequence("the built-in type colors are what it says", shipped.Types, ColorPalette.Default.Types);
+        CheckSequence("the built-in size colors are what it says", shipped.Sizes, ColorPalette.Default.Sizes);
         Check("it has colors for some regions", shipped.Subregions.ContainsKey("SU") && shipped.Subregions.Count > 3);
+        CheckEqual("it has a fallback color for fifteen subregions", 15,
+            ColorFile.ReadSection(lines, ColorFile.DefaultSubregionSection).Length);
         CheckEqual("each region's list starts with the color for none", ColorPalette.DefaultSubregion(0),
             shipped.Subregions["SU"][0]);
+        CheckEqual("a section the file does not have is empty", 0, ColorFile.ReadSection(lines, "[NOPE]").Length);
+        CheckEqual("the fallback colors are not part of the saved file", false,
+            ColorFile.Serialize(shipped).Contains(ColorFile.DefaultSubregionSection));
     }
 
     private static void StatsTests()

@@ -54,26 +54,26 @@ internal sealed record Preferences(
         {
             return null;
         }
-        var result = new Preferences();
+        var preferences = new Preferences();
         for (int i = 0; i < Math.Min(digits.Length, 6); i++)
         {
-            int value = digits[i] - '0';
+            int digit = digits[i] - '0';
             int largest = i is 2 or 3 ? (int)Grouping.Subregion : 1;
-            if (value > largest)
+            if (digit > largest)
             {
                 return null;
             }
-            result = i switch
+            preferences = i switch
             {
-                0 => result with { ShowMenu = value == 1 },
-                1 => result with { ShowStats = value == 1 },
-                2 => result with { Sort = (Grouping)value },
-                3 => result with { View = (Grouping)value },
-                4 => result with { DropdownMode = value == 1 },
-                _ => result with { Alphabetical = value == 1 }
+                0 => preferences with { ShowMenu = digit == 1 },
+                1 => preferences with { ShowStats = digit == 1 },
+                2 => preferences with { Sort = (Grouping)digit },
+                3 => preferences with { View = (Grouping)digit },
+                4 => preferences with { DropdownMode = digit == 1 },
+                _ => preferences with { Alphabetical = digit == 1 }
             };
         }
-        return result;
+        return preferences;
     }
 
     /// <summary> A flag as the digit the settings file uses for it. </summary>
@@ -95,11 +95,11 @@ internal static class FavouriteSet
     /// <summary>The set with the region added if it was absent and removed if it was there.</summary>
     public static HashSet<string> Toggle(IReadOnlyCollection<string> favourites, string region)
     {
-        var result = new HashSet<string>(favourites);
-        if (!result.Remove(region))
+        var toggled = new HashSet<string>(favourites);
+        if (!toggled.Remove(region))
         {
-            result.Add(region);
+            toggled.Add(region);
         }
-        return result;
+        return toggled;
     }
 }

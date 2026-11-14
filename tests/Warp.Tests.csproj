@@ -18,6 +18,9 @@
     <Compile Include="../src/Util/Atom.cs" />
     <Compile Include="../src/Util/Once.cs" />
     <Compile Include="../src/Util/Lists.cs" />
+    <Compile Include="../src/Util/EmbeddedText.cs" />
+    <Compile Include="../src/Util/Maps.cs" />
+    <Compile Include="../src/Util/Numbers.cs" />
     <Compile Include="../src/Switching/SwitchState.cs" />
     <Compile Include="../src/Switching/SwitchStep.cs" />
     <Compile Include="../src/Switching/SwitchPolicy.cs" />
@@ -27,7 +30,7 @@
     <Compile Include="../src/Switching/FrameClock.cs" />
     <Compile Include="../src/Switching/WarpWaitPolicy.cs" />
     <!-- The colors file that ships with Warp, so a test can check it still reads -->
-    <None Include="../Resources/Colors.txt" Link="Colors.txt" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="../data/colors.txt" LogicalName="Warp.Resources.Colors.txt" />
   </ItemGroup>
 
 </Project>

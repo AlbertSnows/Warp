@@ -4,13 +4,16 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using Warp.Util;
 
 namespace Warp.Model;
 
 /// <summary>
 /// The colors file (Colors.txt). It has a [TYPE] section with one "hue:saturation:lightness" line per room type, a
-/// [SIZE] section in the same form, and a [SUBREGION] section in which "[SU]" starts the list of one region. Lines
-/// that start with "//" and blank lines are ignored, and "[END]" stops the reading.
+/// [SIZE] section in the same form, and a [SUBREGION] section in which "[SU]" starts the list of one region. The file
+/// that ships with Warp also has a [DEFAULT-SUBREGION] section, the colors for a subregion whose region has no list;
+/// it is where the built-in colors come from, and the file Warp saves leaves it out. Lines that start with "//" and
+/// blank lines are ignored, and "[END]" stops the reading.
 /// </summary>
 internal static class ColorFile
 {
@@ -18,6 +21,35 @@ internal static class ColorFile
     private const string SizeSection = "[SIZE]";
     private const string SubregionSection = "[SUBREGION]";
     private const string End = "[END]";
+
+    /// <summary> The section of the shipped file that holds the colors for subregions of a region with no list. </summary>
+    public const string DefaultSubregionSection = "[DEFAULT-SUBREGION]";
+
+    /// <summary> The name the shipped colors file is built into the plugin under. </summary>
+    public const string ResourceName = "Warp.Resources.Colors.txt";
+
+    /// <summary>
+    /// The lines that mean something: trimmed, with the blank lines and comments dropped, and nothing from the end
+    /// marker on.
+    /// </summary>
+    private static IEnumerable<string> Meaningful(IEnumerable<string> lines) => lines
+        .Select(raw => raw.Trim())
+        .Where(line => line.Length > 0 && !line.StartsWith("//", StringComparison.Ordinal))
+        .TakeWhile(line => line != End);
+
+    /// <summary>
+    /// The colors of one section, in order. A line that cannot be read is left out. Empty if the file has no such
+    /// section.
+    /// </summary>
+    public static Hsl[] ReadSection(IEnumerable<string> lines, string section) =>
+    [
+        .. Meaningful(lines)
+            .SkipWhile(line => line != section)
+            .Skip(1)
+            .TakeWhile(line => !line.StartsWith("[", StringComparison.Ordinal))
+            .Select(ParseColor)
+            .OfType<Hsl>()
+    ];
 
     /// <summary>
     /// The palette the file describes, starting from <paramref name="start"/>. A color that cannot be read is
@@ -32,53 +64,41 @@ internal static class ColorFile
         string? region = null;
         int index = 0;
 
-        foreach (string raw in lines)
+        foreach (string line in Meaningful(lines))
         {
-            string line = raw.Trim();
-            if (line.Length == 0 || line.StartsWith("//", StringComparison.Ordinal))
-            {
-                continue;
-            }
-            if (line == End)
-            {
-                break;
-            }
-            if (line is TypeSection or SizeSection or SubregionSection)
+            if (line is TypeSection or SizeSection or SubregionSection or DefaultSubregionSection)
             {
                 section = line;
                 region = null;
                 index = 0;
-                continue;
             }
-            if (section == SubregionSection && line.StartsWith("[", StringComparison.Ordinal))
+            else if (section == SubregionSection && line.StartsWith("[", StringComparison.Ordinal))
             {
                 region = line.Trim('[', ']');
                 regions[region] = [];
-                continue;
             }
-            if (!TryParseColor(line, out Hsl color))
+            else
             {
-                onBadLine?.Invoke(line);
-                if (section == SubregionSection && region != null)
+                Hsl? color = ParseColor(line);
+                if (color == null)
                 {
-                    regions[region].Add(ColorPalette.DefaultSubregion(regions[region].Count));
+                    onBadLine?.Invoke(line);
+                }
+                // A line that cannot be read keeps the old color, or for a subregion takes the default for its place
+                switch (section)
+                {
+                    case TypeSection when index < types.Length:
+                        types[index] = color ?? types[index];
+                        break;
+                    case SizeSection when index < sizes.Length:
+                        sizes[index] = color ?? sizes[index];
+                        break;
+                    case SubregionSection when region != null:
+                        regions[region].Add(color ?? ColorPalette.DefaultSubregion(regions[region].Count));
+                        break;
                 }
                 index++;
-                continue;
             }
-            switch (section)
-            {
-                case TypeSection when index < types.Length:
-                    types[index] = color;
-                    break;
-                case SizeSection when index < sizes.Length:
-                    sizes[index] = color;
-                    break;
-                case SubregionSection when region != null:
-                    regions[region].Add(color);
-                    break;
-            }
-            index++;
         }
 
         var subregions = start.Subregions.ToDictionary(pair => pair.Key, pair => pair.Value.ToArray());
@@ -92,27 +112,27 @@ internal static class ColorFile
     /// <summary> The text of the colors file for the palette. The inverse of <see cref="Parse"/>. </summary>
     public static string Serialize(ColorPalette palette)
     {
-        var text = new StringBuilder();
-        text.AppendLine(TypeSection);
-        AppendColors(text, palette.Types);
-        text.AppendLine(SizeSection);
-        AppendColors(text, palette.Sizes);
-        text.AppendLine(SubregionSection);
+        var builder = new StringBuilder();
+        builder.AppendLine(TypeSection);
+        AppendColors(builder, palette.Types);
+        builder.AppendLine(SizeSection);
+        AppendColors(builder, palette.Sizes);
+        builder.AppendLine(SubregionSection);
         // In order of name, so saving twice writes the same file
         foreach (KeyValuePair<string, IReadOnlyList<Hsl>> pair in palette.Subregions.OrderBy(pair => pair.Key, StringComparer.Ordinal))
         {
-            text.AppendLine("[" + pair.Key + "]");
-            AppendColors(text, pair.Value);
+            builder.AppendLine("[" + pair.Key + "]");
+            AppendColors(builder, pair.Value);
         }
-        text.Append(End);
-        return text.ToString();
+        builder.Append(End);
+        return builder.ToString();
     }
 
-    private static void AppendColors(StringBuilder text, IEnumerable<Hsl> colors)
+    private static void AppendColors(StringBuilder builder, IEnumerable<Hsl> colors)
     {
         foreach (Hsl color in colors)
         {
-            text.AppendLine(Format(color));
+            builder.AppendLine(Format(color));
         }
     }
 
@@ -128,36 +148,23 @@ internal static class ColorFile
     /// to be from 0 to 1, and one that is not, or is not a number at all (NaN and infinity parse as numbers), makes the
     /// line a bad one. Anything after the third field is ignored.
     /// </summary>
-    private static bool TryParseColor(string line, out Hsl color)
+    private static Hsl? ParseColor(string line)
     {
-        color = default;
         string[] fields = line.Split(':');
-        if (fields.Length < 3)
-        {
-            return false;
-        }
-        float[] numbers = new float[3];
-        for (int i = 0; i < 3; i++)
-        {
-            if (!TryParseNumber(fields[i], out numbers[i]) || !IsUnit(numbers[i]))
-            {
-                return false;
-            }
-        }
-        color = new Hsl(numbers[0], numbers[1], numbers[2]);
-        return true;
+        float?[] numbers = [.. fields.Take(3).Select(ParseUnit)];
+        return numbers.Length == 3 && numbers.All(number => number != null)
+            ? new Hsl(numbers[0]!.Value, numbers[1]!.Value, numbers[2]!.Value)
+            : null;
     }
 
-    /// <summary> Whether a number is a usable color channel: finite, and from 0 to 1. </summary>
-    private static bool IsUnit(float number) => !float.IsNaN(number) && number is >= 0f and <= 1f;
-
-    /// <summary>
-    /// Reads a number written with a decimal point, or with a decimal comma as an older file on another language
-    /// may have it.
-    /// </summary>
-    private static bool TryParseNumber(string text, out float number)
+    /// <summary> A color channel from its text, or null if it is not a number from 0 to 1. </summary>
+    private static float? ParseUnit(string text)
     {
-        return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out number)
-               || float.TryParse(text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out number);
+        // A file written on a computer set to another language may use a decimal comma
+        float? number = Numbers.ParseFloat(text.Replace(',', '.'));
+        return number != null && IsUnit(number.Value) ? number : null;
     }
+
+    /// <summary> Whether a number is a usable color channel: from 0 to 1, which leaves out NaN and infinity. </summary>
+    private static bool IsUnit(float number) => number is >= 0f and <= 1f;
 }

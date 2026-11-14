@@ -7,6 +7,9 @@ internal readonly record struct TileCoord(int X, int Y);
 /// <summary>
 /// A warp the player has asked for and the game has not yet carried out. It is made when a room button is clicked and
 /// is gone once the players have arrived or the warp failed.
+/// A file of its own because the room buttons, the preview, the pause menu hook and the warp driver all pass a request
+/// around and none of them owns it. It is a pure value, so it is compiled into the tests. <c>TileCoord</c> is above it
+/// because a request is where a tile is kept.
 /// </summary>
 /// <param name="Region">The region the room is in, which may be another than the one the players are in.</param>
 /// <param name="Room">The room to go to, for example "SU_A01".</param>

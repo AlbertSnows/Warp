@@ -1,6 +1,9 @@
 namespace Warp.UI;
 
-/// <summary> Sizes and places the menu shares. </summary>
+/// <summary>
+/// Sizes and places the menu shares. A file of its own so that every class reads the screen size the same way (one
+/// used to read it differently) and the off-screen height is written once.
+/// </summary>
 internal static class UiLayout
 {
     /// <summary>

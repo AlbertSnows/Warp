@@ -34,7 +34,7 @@ says) out of the menu code, where they could only be checked by playing.
 | `RegionList` | The order of regions in the dropdown and in the button grid. |
 | `RegionStats` | The counts and the text of the stats panel. |
 | `Preferences`, `Favourites` | What is saved between sessions, and the text of the files. |
-| `ColorPalette`, `ColorFile` | Button colors, and the text of Colors.txt. |
+| `ColorPalette`, `ColorFile` | Button colors, and the text of Colors.txt. The built-in colors are not in code: they are read from the shipped `data/colors.txt`, which is built into the plugin. `data/` holds the files that decide what the code does; `text/` (translations) and `package/` (the Workshop item) stay where the game and the packaging expect them. |
 | `RoomListExport` | The text of the F5 / F6 export. |
 | `WarpRequest` | A warp the player asked for: region, room, and optionally a tile. |
 

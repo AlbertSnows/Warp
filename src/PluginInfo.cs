@@ -3,6 +3,8 @@ namespace Warp;
 /// <summary>
 /// The plugin's identity, in one place. BepInEx reads these from an attribute, which needs constants, so they cannot
 /// come from the project file; a test checks that <see cref="Version"/> matches the one in Warp.csproj.
+/// A file of its own because the plugin class, its incompatibility attribute and the version test all need these, and
+/// they are the only things that change when the plugin is renamed or released.
 /// </summary>
 internal static class PluginInfo
 {

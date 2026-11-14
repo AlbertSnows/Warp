@@ -24,7 +24,6 @@ internal sealed class Legend : RectangularMenuObject
     private readonly List<MenuLabel> _subregionEntries = [];
     private MenuLabel _keyLabel;
     private MenuLabel _subregionLabel;
-    private bool _keyIsRow;
 
     public Legend(Menu.Menu menu, MenuObject owner) : base(menu, owner, Vector2.zero, Vector2.zero)
     {
@@ -42,7 +41,11 @@ internal sealed class Legend : RectangularMenuObject
     public int KeyEntryCount => _keyEntries.Count;
 
     /// <summary>Whether the key lists its entries side by side, as it does for room sizes.</summary>
-    public bool KeyIsRow => _keyIsRow;
+    public bool KeyIsRow
+    {
+        get;
+        private set;
+    }
 
     /// <summary>How many lines the separate subregion list has.</summary>
     public int SubregionEntryCount => _subregionEntries.Count;
@@ -64,15 +67,15 @@ internal sealed class Legend : RectangularMenuObject
     public void Rebuild(RegionData region, Grouping sort, Grouping view, ColorPalette palette)
     {
         ClearKey();
-        _keyIsRow = view == Grouping.Size;
+        KeyIsRow = view == Grouping.Size;
         _keyLabel = AddLabel(KeyTitle(view), 22f);
         foreach ((string text, Hsl color) in KeyEntries(region, view, palette))
         {
-            MenuLabel entry = AddLabel(text, 25f);
-            entry.label.color = HslColors.ToColor(color);
-            _keyEntries.Add(entry);
+            MenuLabel entryLabel = AddLabel(text, 25f);
+            entryLabel.label.color = HslColors.ToColor(color);
+            _keyEntries.Add(entryLabel);
         }
-        if (_keyIsRow)
+        if (KeyIsRow)
         {
             // Sizes sit next to each other, 10 apart
             for (int i = 0; i < _keyEntries.Count; i++)
@@ -93,9 +96,9 @@ internal sealed class Legend : RectangularMenuObject
         _subregionLabel = AddLabel(Translator.Translate("SUBREGION"), 22f);
         for (int i = 0; i < region.SubregionNames.Length; i++)
         {
-            MenuLabel entry = AddLabel(i + " - " + region.SubregionNames[i], 25f);
-            entry.label.color = HslColors.ToColor(ColorPalette.DefaultSubregion(i));
-            _subregionEntries.Add(entry);
+            MenuLabel entryLabel = AddLabel(i + " - " + region.SubregionNames[i], 25f);
+            entryLabel.label.color = HslColors.ToColor(ColorPalette.DefaultSubregion(i));
+            _subregionEntries.Add(entryLabel);
         }
     }
 

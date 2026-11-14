@@ -90,10 +90,11 @@
     <None Remove="tests/**" />
   </ItemGroup>
 
-  <!-- Source files are picked up automatically. The default colours are built in, and read with EmbeddedText under the
-       name Warp.Resources.Colors.txt. -->
+  <!-- Source files are picked up automatically. data/colors.txt is the one source of the built-in colours: it is built
+       in under the name Warp.Resources.Colors.txt (ColorFile.ResourceName), ColorPalette.Default is read from it, and it
+       is the file written for a player who has none. -->
   <ItemGroup>
-    <EmbeddedResource Include="Resources\Colors.txt" />
+    <EmbeddedResource Include="data\colors.txt" LogicalName="Warp.Resources.Colors.txt" />
   </ItemGroup>
 
 

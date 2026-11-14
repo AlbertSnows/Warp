@@ -8,6 +8,8 @@ namespace Warp.Model;
 /// <summary>
 /// The orders the room list can be shown in. Every order falls back to the room name, so the result does not depend
 /// on the order the rooms came in.
+/// A file of its own because the catalog sorts a region's rooms when it reads them and the grid sorts them again for
+/// the chosen grouping, and the order is pure, so it is tested without the game.
 /// </summary>
 internal static class RoomSorting
 {

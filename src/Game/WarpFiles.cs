@@ -37,8 +37,8 @@ internal static class WarpFiles
     /// </summary>
     public static Preferences LoadPreferences()
     {
-        string text = TryRead(SettingsPath);
-        Preferences preferences = text == null ? null : Preferences.Parse(text);
+        string settingsText = TryRead(SettingsPath);
+        Preferences preferences = settingsText == null ? null : Preferences.Parse(settingsText);
         if (preferences != null)
         {
             return preferences;
@@ -55,8 +55,8 @@ internal static class WarpFiles
     /// <summary> The saved favourite regions, or none if there is no file. </summary>
     public static HashSet<string> LoadFavourites()
     {
-        string text = TryRead(FavouritesPath);
-        return text == null ? [] : FavouriteSet.Parse(text);
+        string favouritesText = TryRead(FavouritesPath);
+        return favouritesText == null ? [] : FavouriteSet.Parse(favouritesText);
     }
 
     /// <summary> Writes the favourite regions to Favourites.txt. </summary>
@@ -69,14 +69,14 @@ internal static class WarpFiles
     /// </summary>
     public static ColorPalette LoadPalette()
     {
-        string text = TryRead(ColorsPath);
-        if (text == null)
+        string colorsText = TryRead(ColorsPath);
+        if (colorsText == null)
         {
-            text = EmbeddedText.Read("Warp.Resources.Colors.txt");
-            TryWrite(ColorsPath, text);
+            colorsText = EmbeddedText.Read(ColorFile.ResourceName);
+            TryWrite(ColorsPath, colorsText);
             WarpLog.Info("Wrote the default colors");
         }
-        return ColorFile.Parse(text.Split('\n'), ColorPalette.Default,
+        return ColorFile.Parse(colorsText.Split('\n'), ColorPalette.Default,
             line => WarpLog.Error("Could not read a color from the colors file: " + line));
     }
 
@@ -90,7 +90,7 @@ internal static class WarpFiles
     /// <summary> Writes the room list text where F5 and F6 put it. Returns the path, or null if it could not be written. </summary>
     public static string WriteRoomList(string text) => TryWrite(RoomListPath, text) ? RoomListPath : null;
 
-    /// <summary>The lines of a file, or null if it is missing or cannot be read.</summary>
+    /// <summary>The lines of a file, or null if it is missing (a null path is a missing file) or cannot be read.</summary>
     public static string[] TryReadLines(string path) => TryIo(path, File.ReadAllLines);
 
     /// <summary> The text of a file, or null if it is missing or cannot be read. A failure is logged. </summary>

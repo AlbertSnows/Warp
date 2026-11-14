@@ -13,22 +13,22 @@ internal static class RoomListExport
     /// </summary>
     public static string Format(IEnumerable<KeyValuePair<string, RoomInfo[]>> regions)
     {
-        var text = new StringBuilder();
-        text.AppendLine("---WARP Room List Export---");
-        text.AppendLine();
+        var builder = new StringBuilder();
+        builder.AppendLine("---WARP Room List Export---");
+        builder.AppendLine();
         foreach (KeyValuePair<string, RoomInfo[]> region in regions)
         {
-            text.Append("---" + region.Key + "---");
+            builder.Append("---" + region.Key + "---");
             foreach (RoomInfo room in region.Value)
             {
-                text.AppendLine();
-                text.Append(room.Name + ": | Cameras: " + room.Cameras + ", Subregion: " + room.Subregion);
+                builder.AppendLine();
+                builder.Append(room.Name + ": | Cameras: " + room.Cameras + ", Subregion: " + room.Subregion);
             }
-            text.AppendLine();
-            text.Append("---Total Rooms: " + region.Value.Length + "---");
-            text.AppendLine();
-            text.AppendLine();
+            builder.AppendLine();
+            builder.Append("---Total Rooms: " + region.Value.Length + "---");
+            builder.AppendLine();
+            builder.AppendLine();
         }
-        return text.ToString();
+        return builder.ToString();
     }
 }

@@ -118,15 +118,12 @@ internal static class RoomWarp
     /// <summary>A spear on a player's back stays in the old room unless it is placed in the new one too.</summary>
     private static void BringBackSpears(List<AbstractCreature> players, Room room)
     {
-        foreach (AbstractCreature abstractPlayer in players)
+        IEnumerable<Player> withSpear = players
+            .Select(abstractPlayer => (Player)abstractPlayer.realizedCreature)
+            .Where(player => player.spearOnBack?.spear != null);
+        foreach (Player player in withSpear)
         {
-            var player = (Player)abstractPlayer.realizedCreature;
-            Spear spear = player.spearOnBack?.spear;
-            if (spear == null)
-            {
-                continue;
-            }
-
+            Spear spear = player.spearOnBack.spear;
             spear.PlaceInRoom(room);
             spear.room = player.room;
         }

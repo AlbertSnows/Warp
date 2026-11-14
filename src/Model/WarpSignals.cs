@@ -1,5 +1,7 @@
 #nullable enable
 using System;
+using System.Globalization;
+using Warp.Util;
 
 namespace Warp.Model;
 
@@ -98,11 +100,8 @@ internal static class WarpSignals
     /// <summary> The swatch a message stands for, or null if it is not a swatch's message. </summary>
     public static int? SwatchOf(string message)
     {
-        return After(message, SwatchPrefix) is { } digits
-               && int.TryParse(digits, System.Globalization.NumberStyles.None,
-                   System.Globalization.CultureInfo.InvariantCulture, out int index)
-            ? index
-            : null;
+        string? digits = After(message, SwatchPrefix);
+        return digits == null ? null : Numbers.ParseInt(digits, NumberStyles.None);
     }
 
     /// <summary> What comes after the prefix, or null if the message does not start with it or has nothing after it. </summary>

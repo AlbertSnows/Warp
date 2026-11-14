@@ -5,7 +5,12 @@ using Warp.Util;
 
 namespace Warp.UI;
 
-/// <summary> Things Warp asks of the game's pause menu. </summary>
+/// <summary>
+/// Things Warp asks of the game's pause menu.
+/// A file of its own because two places start a warp, a room button (in <c>Hooks</c>) and a click in the preview (in
+/// <c>UI</c>), and <c>UI</c> must not depend on <c>Hooks</c>, so the shared code sits in <c>UI</c> where both can reach
+/// it.
+/// </summary>
 internal static class PauseMenuActions
 {
     /// <summary> The pause menu's message that closes it, which lets the game run again. </summary>

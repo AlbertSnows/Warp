@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Warp.Util;
 
 namespace Warp.Model;
 
@@ -20,7 +21,7 @@ internal sealed record RegionStats(
     IReadOnlyList<KeyValuePair<int, int>> RoomsByCameras)
 {
     /// <summary> How many rooms there are of the type, zero if none. </summary>
-    internal int Count(RoomType type) => CountsByType.TryGetValue(type, out int count) ? count : 0;
+    internal int Count(RoomType type) => CountsByType.GetOr(type, 0);
 
     /// <summary> The counts for a region's rooms. </summary>
     public static RegionStats Of(IReadOnlyCollection<RoomInfo> rooms)

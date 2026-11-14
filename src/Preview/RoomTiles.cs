@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Warp.Util;
 
 namespace Warp.Preview;
 
@@ -91,17 +92,11 @@ internal sealed class RoomTiles
 
         var tiles = new Tile[width, height];
         string[] cells = lines[TileLine].Split('|');
-        int x = 0, y = height - 1;
-        for (int i = 0; i < cells.Length - 1 && x < width; i++)
+        // The cells run down each column in turn, starting at the top of the first; the last entry is empty
+        int cellCount = Math.Min(cells.Length - 1, width * height);
+        for (int i = 0; i < cellCount; i++)
         {
-            tiles[x, y] = ParseTile(cells[i].Split(','));
-            if (--y >= 0)
-            {
-                continue;
-            }
-
-            x++;
-            y = height - 1;
+            tiles[i / height, height - 1 - i % height] = ParseTile(cells[i].Split(','));
         }
         return new RoomTiles(tiles, water);
     }
@@ -109,9 +104,8 @@ internal sealed class RoomTiles
     /// <summary> The terrain a number in a room file stands for. A number that is not a known terrain reads as air. </summary>
     private static Terrain ParseTerrain(string text)
     {
-        bool known = int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
-                     && Enum.IsDefined(typeof(Terrain), value);
-        return known ? (Terrain)value : Terrain.Air;
+        int? number = Numbers.ParseInt(text);
+        return number != null && Enum.IsDefined(typeof(Terrain), number.Value) ? (Terrain)number.Value : Terrain.Air;
     }
 
     /// <summary> A tile from one "terrain,flag,flag" cell of a room file. </summary>
