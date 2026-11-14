@@ -36,6 +36,10 @@ internal static class WarpDriver
         var clock = new FrameClock(Time.realtimeSinceStartup, Time.frameCount);
         if (_active == null || !ReferenceEquals(_active.Request, request))
         {
+            if (_active != null)
+            {
+                WarpLog.Info("The warp to " + _active.Request.Room + " was replaced by a warp to " + request.Room);
+            }
             _active?.Switch?.Cancel();
             _active = new ActiveWarp(request, clock.Now);
         }

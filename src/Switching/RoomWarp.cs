@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using UnityEngine;
 using Warp.Model;
+using Warp.Util;
 
 namespace Warp.Switching;
 
@@ -22,6 +24,7 @@ internal static class RoomWarp
     public static (ActiveWarp Warp, bool Done) Step(RainWorldGame game, ActiveWarp warp, FrameClock clock)
     {
         WarpRequest request = warp.Request;
+        bool firstFrame = warp.Room == null;
         AbstractRoom room = warp.Room
                             ?? Staged.Run(WarpStage.AbstractRoom, () => game.world.GetAbstractRoom(request.Room)
                                                                 ?? throw new InvalidOperationException("The region has no room named " + request.Room));
@@ -29,10 +32,17 @@ internal static class RoomWarp
         {
             Room = room
         };
+        string prefix = "Room warp to " + request.Room + ": ";
+        string elapsed = " (" + (clock.Now - warp.FirstSeen).ToString("0.0", CultureInfo.InvariantCulture) + " s)";
+        if (firstFrame)
+        {
+            WarpLog.Info(prefix + "room found, " + (room.realizedRoom == null ? "not realized yet" : "already realized"));
+        }
         Staged.Run(WarpStage.RealiseRoom, () =>
         {
             if (room.realizedRoom == null)
             {
+                WarpLog.Info(prefix + "realizing the room" + elapsed);
                 room.RealizeRoom(game.world, game);
             }
         });
@@ -42,14 +52,22 @@ internal static class RoomWarp
         switch (WarpWaitPolicy.Next(warp.FirstSeen, facts, WarpTimeout.Seconds))
         {
             case WarpWaitAction.Drop:
+                WarpLog.Info(prefix + "dropped, the players are gone" + elapsed);
                 return (warp, true);
             case WarpWaitAction.TimedOut:
                 throw WarpTimeout.Exception(facts.Ready ? WarpStage.MovePlayer : WarpStage.RealiseRoom);
             case WarpWaitAction.Wait:
+                if (clock.Frame % 40 == 0)
+                {
+                    WarpLog.Info(prefix + "waiting, room ready " + facts.Ready + ", players can move "
+                                 + facts.PlayersCanMove + elapsed);
+                }
                 return (warp, false);
             case WarpWaitAction.Go:
                 // The policy said Go, so every alive player has a body that is not in a shortcut
+                WarpLog.Info(prefix + "moving the players" + elapsed);
                 bool done = Staged.Run(WarpStage.MovePlayer, () => MoveIn(game, realized, request.Tile));
+                WarpLog.Info(prefix + (done ? "done" : "players moved, the camera follows next frame") + elapsed);
                 return (warp, done);
             default:
                 // An action added to the policy later must not fall into moving the players

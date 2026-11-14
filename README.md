@@ -1,58 +1,43 @@
 # Warp For Meadow
 
-The code is under the Mozilla Public License 2.0; see [LICENSE](LICENSE).
+A fork of [Warp Menu](https://github.com/LeeMoriya/Warp) by LeeMoriya, with the code reworked and a fix for Rain Meadow.
+Mozilla Public License 2.0, see [LICENSE](LICENSE).
 
-Warp For Meadow is a fork of [Warp Menu](https://github.com/LeeMoriya/Warp) by LeeMoriya. It keeps the menu and reworks the code underneath.
+Warp adds a menu to Rain World's pause screen for teleporting to any room, in any region, without using gates. It is
+mostly for testing mods and building custom regions. The current region's rooms are on the right and the regions on the
+left. Click a room to warp there, or a region to list its rooms.
 
-**Rain Meadow.** This mod fixes one thing there: a warp to another region used to freeze the game for good under a Meadow lobby, because the region was loaded in a loop that held the game still while Meadow waited for its network to be processed. Regions now load a step each frame, so the game keeps running and Meadow keeps working. It does not do Meadow's own handling of a region change (leaving the old region's session, fixing up avatars and carried items), and warping with other players in the lobby is untested. Pausing in a lobby does not stop the game, and the world is not drawn while the pause menu is open; that is how Rain Meadow behaves without any Warp installed. [MeadowWarpFix](https://github.com/AlbertSnows/meadow-warp-fix) pumps Meadow's network inside the original Warp's blocking loop, and this mod has no blocking loop, so it should not be needed with this mod. That combination has not been tested; if you have both, try without MeadowWarpFix first.
+![Warp Overhaul](docs/images/warp-overhaul.png)
 
-Warp is a utility mod for Rain World that allows you to teleport the player to any room in the game, most common uses are to help with the creation of Custom Regions or testing in-development mods.
+## Rain Meadow
 
-The Warp menu is accessed via the Pause screen. Rooms in your current region are displayed on the right while a list of vanilla and modded regions are displayed on the left. Clicking on a room button will warp the player to that room. Clicking on a region button will change the list of room buttons to that of the selected region so that you can warp to rooms in different regions without the use of gates.
+A warp to another region used to freeze the game for good in a Meadow lobby. Regions now load a step each frame, so the
+game keeps running. 
 
-![Warp](https://imgur.com/Z4ye1e4.png)
+Pausing in a lobby does not stop the game, and the world is not drawn while paused. That is Rain Meadow's own behaviour.
 
-## Requirements:
-Warp versions v1.71 and above are for Rain World v1.9
-Warp versions v.86.0 and above are for Rain World v1.10
+## Install
 
-## Download:
+No prebuilt releases yet. Build it below, or use the Steam Workshop once it is published. Needs Rain World with BepInEx.
 
-There are no prebuilt releases yet. Build it (below), or find it on the Steam Workshop once it is published. The
-original Warp Menu is [here](https://github.com/LeeMoriya/Warp/releases).
+## Build
 
-## Building:
-The code uses C# 12, so it needs the .NET 8 SDK. It also needs Rain World with BepInEx 
-installed (run the game once with BepInEx so it creates the `HOOKS-Assembly-CSharp` and 
-`PUBLIC-Assembly-CSharp` libraries the build uses). It builds on Windows, Linux and macOS. 
-The first build downloads a small package from NuGet, so it needs an internet connection that once:
-
-    dotnet build -c Release
-
-Use `-c Release` unless you want the Debug behaviour described below.
-
-The project looks for the game in the usual Steam folders. If yours is somewhere else, pass its folder or set the `RAINWORLD_DIR` environment variable:
-
-    dotnet build -c Release -p:RainWorldDir="/path/to/Rain World"
-
-The result is `bin/Release/Warp.dll`.
-
-To stage the whole mod as the game and the Workshop expect it, with its `modinfo.json`, sprites and translations, run:
+Needs the .NET 8 SDK and Rain World with BepInEx, run once so it creates the libraries the build uses.
 
     dotnet build Warp.csproj -c Release -t:PackageMod
 
-The folder is `bin/package/warp-for-meadow`. Put your own `thumbnail.png` in `package/` first to have it included. The
-mod id, name and description are in `package/modinfo.json`; the version is the one in `Warp.csproj`.
+The mod is staged in `bin/package/warp-for-meadow`. Put a `thumbnail.png` in `package/` first to include it. If the game
+is not in a usual Steam folder, add `-p:RainWorldDir="/path/to/Rain World"` or set `RAINWORLD_DIR`.
 
-A Debug build, which is what `dotnet build` does when you leave out `-c Release`, is written straight into the game's `RainWorld_Data/StreamingAssets/mods/warp/newest/plugins` folder if that folder exists, so a change can be tried in the game at once. **That overwrites the Warp in that folder.** To build a Debug version without that, add `-p:DeployToGame=false`, and it goes to `bin/Debug` instead. Without a `mods/warp` folder, Debug builds always go to `bin/Debug`.
+A Debug build (no `-c Release`) copies `Warp.dll` into the game's `mods/warp` folder if there is one, overwriting it.
+Add `-p:DeployToGame=false` to build into `bin/Debug` instead.
 
-## Newer C# on .NET Framework 4.8:
-Warp has to target `net48`, because Rain World's Unity 2020.3 runs mods on that family of libraries, and no newer .NET can be loaded. The compiler can still be newer than the target (`LangVersion` is 12 in `Warp.csproj`). The syntax then works, as long as the library types it relies on exist. For records and `init` properties one type is missing, `IsExternalInit`, and `src/Util/IsExternalInit.cs` supplies an empty copy. The file explains how that works and lists its sources.
+The plugin targets .NET Framework 4.8, which is what Rain World runs on, with newer C# syntax. See
+`src/Util/IsExternalInit.cs` for how.
 
-## Tests:
-The tests cover everything that needs no game files: reading the region files, sorting and laying out the room buttons, the settings, favourites and color files, the room preview drawing, and the region switch decisions. From the repository root:
+## Tests and docs
 
     dotnet run --project tests/Warp.Tests.csproj
 
-## Code layout:
-`src/Model` and `src/Preview` hold the logic and know nothing about the game, which is why the tests can run without it. `src/Game` reads the game's files and keeps the menu's state. `src/Switching` carries out warps. `src/UI` is the menu itself and `src/Hooks` connects it to the game. [docs/architecture.md](docs/architecture.md) explains how the parts fit together, and [docs/testing.md](docs/testing.md) lists what to try in the game after a change, since the menu cannot be tested outside it.
+[docs/testing.md](docs/testing.md) has the in-game checks and how to watch the log.
+[docs/architecture-review.md](docs/architecture-review.md) shows how the code fits together.
